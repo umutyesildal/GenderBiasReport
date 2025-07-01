@@ -22,20 +22,32 @@ class CorpusProcessor:
         try:
             if not self.corpus_file.exists():
                 print(f"{Fore.RED}Corpus file not found: {self.corpus_file}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}Please create {self.corpus_file} with columns: id, paragraph, source{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}Please create {self.corpus_file} with columns: Label, Text, Gendered Terms, Source{Style.RESET_ALL}")
                 return False
             
             df = pd.read_csv(self.corpus_file)
             
             # Validate required columns
-            required_columns = ['id', 'paragraph', 'source']
+            required_columns = ['Label', 'Text', 'Source']
             missing_columns = [col for col in required_columns if col not in df.columns]
             
             if missing_columns:
                 print(f"{Fore.RED}Missing required columns: {missing_columns}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}Available columns: {list(df.columns)}{Style.RESET_ALL}")
                 return False
             
-            self.paragraphs = df.to_dict('records')
+            # Convert to the format expected by the rest of the system
+            paragraphs_data = []
+            for idx, row in df.iterrows():
+                paragraphs_data.append({
+                    'id': idx,
+                    'label': row['Label'],
+                    'text': row['Text'],
+                    'source': row['Source'],
+                    'gendered_terms_count': row.get('Gendered Terms', 0)
+                })
+            
+            self.paragraphs = paragraphs_data
             print(f"{Fore.GREEN}✓ Loaded {len(self.paragraphs)} paragraphs from corpus{Style.RESET_ALL}")
             return True
             
@@ -58,7 +70,7 @@ class CorpusProcessor:
         
         for i, paragraph_data in enumerate(self.paragraphs):
             paragraph_id = paragraph_data['id']
-            paragraph_text = paragraph_data['paragraph']
+            paragraph_text = paragraph_data['text']
             
             # Count gendered terms
             gendered_counts = count_gendered_terms(paragraph_text, self.gendered_patterns)

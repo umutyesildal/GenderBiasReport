@@ -21,12 +21,16 @@ load_dotenv()
 
 def setup_logging(log_level=logging.INFO):
     """Setup logging configuration"""
+    from .config import LOGS_DIR
+    
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_file = LOGS_DIR / f"gender_bias_study_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    
     logging.basicConfig(
         level=log_level,
         format=log_format,
         handlers=[
-            logging.FileHandler(f"gender_bias_study_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
+            logging.FileHandler(log_file),
             logging.StreamHandler()
         ]
     )

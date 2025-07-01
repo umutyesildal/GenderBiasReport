@@ -37,8 +37,13 @@ ENV/
 # Results and outputs (keep structure but not content)
 data/outputs/**/*.json
 data/results/**/*.json
+data/results/visualizations
 !data/outputs/.gitkeep
 !data/results/.gitkeep
+
+# Log files
+logs/*.log
+!logs/.gitkeep
 
 # Temporary files
 *.tmp

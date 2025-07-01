@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Test script for Gender Bias study - Small scale validation
-Runs 3 paragraphs × 4 strategies × 2 models × 1 repetition = 24 experiments
+Runs 3 paragraphs x 4 strategies x 2 models x 1 repetition = 24 experiments
 Perfect for testing before running the full study
 """
 import sys
@@ -37,7 +39,7 @@ class TestExperimentRunner:
         self.results_file = RESULTS_DIR / f"test_results_{self.experiment_id}.json"
         self.detailed_results = []
         
-        print(f"{Fore.CYAN}🧪 Test Experiment Runner Initialized{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Test Experiment Runner Initialized{Style.RESET_ALL}")
         print(f"Test ID: {self.experiment_id}")
         print(f"Testing with {num_paragraphs} paragraphs")
     
@@ -64,7 +66,7 @@ class TestExperimentRunner:
         
         # Display selected paragraphs
         for i, p in enumerate(self.test_paragraphs):
-            print(f"  {i+1}. {p['id']}: {p['paragraph'][:100]}...")
+            print(f"  {i+1}. {p['id']}: {p['text'][:100]}...")
         
         # Initialize LLM interfaces
         try:
@@ -94,11 +96,11 @@ class TestExperimentRunner:
                                  model_name: str, repetition: int = 1) -> dict:
         """Run a single test experiment"""
         paragraph_id = paragraph_data['id']
-        paragraph_text = paragraph_data['paragraph']
+        paragraph_text = paragraph_data['text']
         
         experiment_id = f"test_{paragraph_id}_{strategy_name}_{model_name}_rep{repetition}"
         
-        print(f"  🔬 Running: {experiment_id}")
+        print(f"   Running: {experiment_id}")
         
         try:
             # Create prompt
@@ -115,7 +117,7 @@ class TestExperimentRunner:
             
             if not generation_result["success"]:
                 error_msg = f"LLM generation failed: {generation_result['error']}"
-                print(f"    {Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
+                print(f"    {Fore.RED}X {error_msg}{Style.RESET_ALL}")
                 return {
                     "experiment_id": experiment_id,
                     "success": False,
@@ -125,7 +127,7 @@ class TestExperimentRunner:
             generated_text = generation_result["generated_text"]
             
             # Quick preview
-            print(f"    📝 Generated: {generated_text[:100]}...")
+            print(f"     Generated: {generated_text[:100]}...")
             
             # Evaluate the result
             evaluation_result = self.evaluator.evaluate_text_pair(
@@ -142,10 +144,10 @@ class TestExperimentRunner:
             
             # Show quick evaluation results
             summary = evaluation_result["summary_scores"]
-            print(f"    📊 Bias reduction: {summary['bias_reduction_percentage']:.1f}%")
-            print(f"    📊 Gender neutral: {summary['is_gender_neutral']}")
-            print(f"    📊 Fluency: {summary['fluency_score']:.3f}")
-            print(f"    📊 BLEU-4: {summary['bleu_4_score']:.3f}")
+            print(f"     Bias reduction: {summary['bias_reduction_percentage']:.1f}%")
+            print(f"     Gender neutral: {summary['is_gender_neutral']}")
+            print(f"     Fluency: {summary['fluency_score']:.3f}")
+            print(f"     BLEU-4: {summary['bleu_4_score']:.3f}")
             
             # Compile complete experiment result
             experiment_result = {
@@ -161,12 +163,12 @@ class TestExperimentRunner:
                 "success": True
             }
             
-            print(f"    {Fore.GREEN}✅ Success{Style.RESET_ALL}")
+            print(f"    {Fore.GREEN}OK Success{Style.RESET_ALL}")
             return experiment_result
             
         except Exception as e:
             error_msg = f"Experiment failed: {str(e)}"
-            print(f"    {Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
+            print(f"    {Fore.RED}X {error_msg}{Style.RESET_ALL}")
             return {
                 "experiment_id": experiment_id,
                 "success": False,
@@ -181,7 +183,7 @@ class TestExperimentRunner:
         strategies = self.prompt_manager.get_strategy_names()
         models = self.llm_manager.get_available_models()
         
-        print(f"\n{Fore.CYAN}🚀 Starting test experiments...{Style.RESET_ALL}")
+        print(f"\n{Fore.CYAN} Starting test experiments...{Style.RESET_ALL}")
         start_time = time.time()
         
         experiment_count = 0
@@ -189,13 +191,13 @@ class TestExperimentRunner:
         
         try:
             for paragraph_data in self.test_paragraphs:
-                print(f"\n📖 Processing paragraph: {paragraph_data['id']}")
+                print(f"\n Processing paragraph: {paragraph_data['id']}")
                 
                 for strategy_name in strategies:
-                    print(f"  🎭 Strategy: {strategy_name}")
+                    print(f"   Strategy: {strategy_name}")
                     
                     for model_name in models:
-                        print(f"    🤖 Model: {model_name}")
+                        print(f"     Model: {model_name}")
                         
                         experiment_count += 1
                         
@@ -218,7 +220,7 @@ class TestExperimentRunner:
         
         total_time = time.time() - start_time
         
-        print(f"\n{Fore.GREEN}✅ Test experiments completed!{Style.RESET_ALL}")
+        print(f"\n{Fore.GREEN}OK Test experiments completed!{Style.RESET_ALL}")
         print(f"Total time: {total_time:.1f} seconds")
         print(f"Successful experiments: {successful_experiments}/{experiment_count}")
         
@@ -257,31 +259,31 @@ class TestExperimentRunner:
             return False
         
         try:
-            print(f"\n{Fore.CYAN}📊 Running test analysis...{Style.RESET_ALL}")
+            print(f"\n{Fore.CYAN} Running test analysis...{Style.RESET_ALL}")
             
             # Use the comprehensive analyzer
             analyzer = ComprehensiveAnalyzer(self.results_file)
             analysis_results = analyzer.run_complete_analysis()
             
             # Print summary
-            print(f"\n{Fore.CYAN}🎯 TEST ANALYSIS SUMMARY{Style.RESET_ALL}")
+            print(f"\n{Fore.CYAN} TEST ANALYSIS SUMMARY{Style.RESET_ALL}")
             print("=" * 50)
             
             # Show strategy performance
             strategy_stats = analysis_results["descriptive_stats"]["by_strategy"]
-            print(f"\n📈 Strategy Performance:")
+            print(f"\n Strategy Performance:")
             for strategy, stats in strategy_stats.items():
                 bias_mean = stats["bias_reduction_percentage"]["mean"]
                 fluency_mean = stats["fluency_score"]["mean"]
                 print(f"  {strategy}: Bias Reduction {bias_mean:.1f}%, Fluency {fluency_mean:.3f}")
             
             # Show ANOVA results
-            print(f"\n🔬 Statistical Tests:")
+            print(f"\n Statistical Tests:")
             for metric, results in analysis_results["anova_results"].items():
-                significance = "✅ Significant" if results["significant"] else "❌ Not significant"
+                significance = "OK Significant" if results["significant"] else "X Not significant"
                 print(f"  {metric}: {significance} (p={results['p_value']:.4f})")
             
-            print(f"\n✅ Test analysis complete!")
+            print(f"\nOK Test analysis complete!")
             return True
             
         except Exception as e:
@@ -290,7 +292,7 @@ class TestExperimentRunner:
 
 def main():
     """Main function to run test experiments"""
-    print(f"{Fore.CYAN}🧪 Gender Bias Study - Test Runner{Style.RESET_ALL}")
+    print(f"{Fore.CYAN} Gender Bias Study - Test Runner{Style.RESET_ALL}")
     print("=" * 60)
     print("This will run a small-scale test with 3 paragraphs to validate the system")
     print("before running the full 300-experiment study.")
@@ -317,13 +319,13 @@ def main():
             analysis_success = test_runner.run_test_analysis()
             
             if analysis_success:
-                print(f"\n{Fore.GREEN}🎯 Test complete! System is working correctly.{Style.RESET_ALL}")
+                print(f"\n{Fore.GREEN} Test complete! System is working correctly.{Style.RESET_ALL}")
                 print(f"{Fore.CYAN}You can now run the full experiment with:{Style.RESET_ALL}")
                 print(f"python main.py run-experiment")
             else:
                 print(f"\n{Fore.YELLOW}Test experiments worked, but analysis had issues.{Style.RESET_ALL}")
     else:
-        print(f"\n{Fore.RED}❌ Test experiments failed. Please check the setup.{Style.RESET_ALL}")
+        print(f"\n{Fore.RED}X Test experiments failed. Please check the setup.{Style.RESET_ALL}")
         print(f"Fix any issues and try again.")
 
 if __name__ == "__main__":

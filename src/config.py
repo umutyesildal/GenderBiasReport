@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Configuration settings for the Gender Bias in LLMs study
 """
@@ -11,23 +13,26 @@ CORPUS_DIR = DATA_DIR / "corpus"
 OUTPUTS_DIR = DATA_DIR / "outputs"
 RESULTS_DIR = DATA_DIR / "results"
 NOTEBOOKS_DIR = PROJECT_ROOT / "notebooks"
+LOGS_DIR = PROJECT_ROOT / "logs"
 
 # Ensure directories exist
-for dir_path in [DATA_DIR, CORPUS_DIR, OUTPUTS_DIR, RESULTS_DIR, NOTEBOOKS_DIR]:
+for dir_path in [DATA_DIR, CORPUS_DIR, OUTPUTS_DIR, RESULTS_DIR, NOTEBOOKS_DIR, LOGS_DIR]:
     dir_path.mkdir(parents=True, exist_ok=True)
 
 # Experiment configuration
 EXPERIMENT_CONFIG = {
     "repetitions_per_paragraph": 3,
     "prompt_strategies": ["raw", "system", "few_shot", "few_shot_verification"],
-    "llm_models": ["openai", "gemini"],
+    "llm_models": ["openai"],  # Only use OpenAI
     "temperature": 0.7,  # For reproducible but varied outputs
+    "models": {
+        "openai": "gpt-4.1-mini"
+    }
 }
 
 # Rate limiting (requests per minute)
 RATE_LIMITS = {
     "openai": 30,  # Conservative limit for GPT models
-    "gemini": 60,  # Gemini has higher limits typically
 }
 
 # Comprehensive gendered terms regex patterns for bias detection

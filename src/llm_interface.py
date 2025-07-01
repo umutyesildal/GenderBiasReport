@@ -3,7 +3,7 @@ LLM interfaces for different AI models
 """
 import time
 import openai
-import google.generativeai as genai
+# import google.generativeai as genai  # Disabled for OpenAI-only mode
 from typing import Dict, List, Optional, Any
 from .utils import get_api_key, rate_limiter, setup_logging
 from .config import RATE_LIMITS, EXPERIMENT_CONFIG
@@ -35,7 +35,7 @@ class BaseLLMInterface:
 class OpenAIInterface(BaseLLMInterface):
     """Interface for OpenAI GPT models"""
     
-    def __init__(self, model_name: str = "gpt-3.5-turbo"):
+    def __init__(self, model_name: str = "gpt-4.1-mini"):
         super().__init__("openai")
         self.model_name = model_name
         
@@ -86,59 +86,12 @@ class OpenAIInterface(BaseLLMInterface):
                 "error": str(e)
             }
 
-class GeminiInterface(BaseLLMInterface):
-    """Interface for Google Gemini models"""
-    
-    def __init__(self, model_name: str = "gemini-pro"):
-        super().__init__("gemini")
-        self.model_name = model_name
-        
-        # Initialize Gemini
-        api_key = get_api_key("gemini")
-        if not api_key:
-            raise ValueError("Gemini API key not found. Please set GEMINI_API_KEY in your .env file.")
-        
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(model_name)
-        logger.info(f"Initialized Gemini interface with model: {model_name}")
-    
-    def generate_text(self, prompt: str, system_message: Optional[str] = None) -> Dict[str, Any]:
-        """Generate text using Google Gemini"""
-        self._wait_for_rate_limit()
-        
-        try:
-            # Combine system message with prompt if provided
-            full_prompt = prompt
-            if system_message:
-                full_prompt = f"{system_message}\n\n{prompt}"
-            
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=EXPERIMENT_CONFIG["temperature"],
-                    max_output_tokens=1000,
-                )
-            )
-            
-            generated_text = response.text
-            
-            return {
-                "generated_text": generated_text,
-                "success": True,
-                "model": self.model_name,
-                "tokens_used": None,  # Gemini doesn't always provide token count
-                "error": None
-            }
-            
-        except Exception as e:
-            logger.error(f"Gemini API error: {e}")
-            return {
-                "generated_text": None,
-                "success": False,
-                "model": self.model_name,
-                "tokens_used": None,
-                "error": str(e)
-            }
+# GeminiInterface disabled for OpenAI-only mode
+# class GeminiInterface(BaseLLMInterface):
+#     """Interface for Google Gemini models"""
+#     def __init__(self, model_name: str = "gemini-pro"):
+#         # Implementation commented out for OpenAI-only mode
+#         pass
 
 class LLMManager:
     """Manage multiple LLM interfaces"""
@@ -151,17 +104,13 @@ class LLMManager:
         """Initialize all available LLM interfaces"""
         # Try to initialize OpenAI
         try:
-            self.interfaces["openai"] = OpenAIInterface()
+            self.interfaces["openai"] = OpenAIInterface("gpt-4.1-mini")
             print(f"{Fore.GREEN}✓ OpenAI interface initialized{Style.RESET_ALL}")
         except Exception as e:
             print(f"{Fore.YELLOW}⚠ OpenAI interface failed to initialize: {e}{Style.RESET_ALL}")
         
-        # Try to initialize Gemini
-        try:
-            self.interfaces["gemini"] = GeminiInterface()
-            print(f"{Fore.GREEN}✓ Gemini interface initialized{Style.RESET_ALL}")
-        except Exception as e:
-            print(f"{Fore.YELLOW}⚠ Gemini interface failed to initialize: {e}{Style.RESET_ALL}")
+        # Skip Gemini initialization (OpenAI only mode)
+        print(f"{Fore.CYAN}Running in OpenAI-only mode{Style.RESET_ALL}")
         
         if not self.interfaces:
             raise RuntimeError("No LLM interfaces could be initialized. Please check your API keys.")
