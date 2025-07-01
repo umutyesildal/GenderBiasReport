@@ -16,6 +16,27 @@ try:
 except LookupError:
     nltk.download('punkt')
 
+def clean_verification_text(text: str) -> str:
+    """Remove verification text from generated content for accurate analysis"""
+    # Remove verification sections that start with "Verification:" or similar patterns
+    verification_patterns = [
+        r'\n\nVerification:.*$',  # Remove verification section at the end
+        r'\nVerification:.*$',   # Alternative pattern
+        r'Verification:.*$',     # If it starts with Verification
+        r'\n\n.*verification.*:.*$',  # More flexible pattern
+        r'\n.*verification.*:.*$',    # Single newline pattern
+    ]
+    
+    cleaned_text = text
+    for pattern in verification_patterns:
+        cleaned_text = re.sub(pattern, '', cleaned_text, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Clean up extra whitespace
+    cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text)  # Multiple newlines to double
+    cleaned_text = cleaned_text.strip()
+    
+    return cleaned_text
+
 class GenderBiasEvaluator:
     """Evaluate gender bias in generated text"""
     
@@ -55,8 +76,11 @@ class GenderBiasEvaluator:
     
     def compare_bias_reduction(self, original_text: str, generated_text: str) -> Dict[str, Any]:
         """Compare bias between original and generated text"""
+        # Clean verification text from generated content before analysis
+        cleaned_generated_text = clean_verification_text(generated_text)
+        
         original_bias = self.calculate_bias_score(original_text)
-        generated_bias = self.calculate_bias_score(generated_text)
+        generated_bias = self.calculate_bias_score(cleaned_generated_text)
         
         bias_reduction = original_bias['bias_score'] - generated_bias['bias_score']
         bias_reduction_percentage = (bias_reduction / original_bias['bias_score'] * 100) if original_bias['bias_score'] > 0 else 0
@@ -77,9 +101,12 @@ class FluencyEvaluator:
     
     def calculate_fluency_score(self, text: str) -> Dict[str, Any]:
         """Calculate fluency score (simplified version)"""
+        # Clean verification text first
+        cleaned_text = clean_verification_text(text)
+        
         # Basic fluency metrics
-        sentences = nltk.sent_tokenize(text)
-        words = nltk.word_tokenize(text)
+        sentences = nltk.sent_tokenize(cleaned_text)
+        words = nltk.word_tokenize(cleaned_text)
         
         # Calculate basic metrics
         num_sentences = len(sentences)
@@ -87,7 +114,7 @@ class FluencyEvaluator:
         avg_sentence_length = num_words / num_sentences if num_sentences > 0 else 0
         
         # Simple grammar check (very basic)
-        grammar_issues = self._check_basic_grammar(text)
+        grammar_issues = self._check_basic_grammar(cleaned_text)
         
         # Calculate fluency score (0-1, higher is better)
         # This is a simplified metric - in practice you'd want more sophisticated measures
@@ -128,9 +155,12 @@ class MeaningPreservationEvaluator:
     
     def calculate_bleu_score(self, original_text: str, generated_text: str) -> Dict[str, Any]:
         """Calculate BLEU-4 score between original and generated text"""
+        # Clean verification text from generated content
+        cleaned_generated_text = clean_verification_text(generated_text)
+        
         # Tokenize texts
         original_tokens = nltk.word_tokenize(original_text.lower())
-        generated_tokens = nltk.word_tokenize(generated_text.lower())
+        generated_tokens = nltk.word_tokenize(cleaned_generated_text.lower())
         
         # Calculate BLEU scores
         bleu_1 = sentence_bleu([original_tokens], generated_tokens, weights=(1, 0, 0, 0), smoothing_function=self.smoothing_function)
@@ -150,9 +180,12 @@ class MeaningPreservationEvaluator:
     
     def calculate_semantic_similarity(self, original_text: str, generated_text: str) -> Dict[str, Any]:
         """Calculate semantic similarity (basic implementation)"""
+        # Clean verification text from generated content
+        cleaned_generated_text = clean_verification_text(generated_text)
+        
         # Simple word overlap-based similarity
         original_words = set(nltk.word_tokenize(original_text.lower()))
-        generated_words = set(nltk.word_tokenize(generated_text.lower()))
+        generated_words = set(nltk.word_tokenize(cleaned_generated_text.lower()))
         
         # Remove common stop words for better comparison
         stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can'}

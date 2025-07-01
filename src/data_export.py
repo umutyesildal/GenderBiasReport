@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Any
 from datetime import datetime
 from .utils import load_json, save_json
+from .evaluation import clean_verification_text
 from colorama import Fore, Style
 
 class ResultsExporter:
@@ -24,13 +25,19 @@ class ResultsExporter:
         comparisons = []
         
         for result in self.results_data.get("detailed_results", []):
+            # Clean verification text from generated content for display
+            original_text = result["evaluation"]["original_text"]
+            generated_text = result["evaluation"]["generated_text"]
+            cleaned_generated_text = clean_verification_text(generated_text)
+            
             comparison = {
                 "experiment_id": result["experiment_id"],
                 "paragraph_id": result["paragraph_id"],
                 "strategy": result["strategy"],
                 "model": result["model"],
-                "original_text": result["evaluation"]["original_text"],
-                "generated_text": result["evaluation"]["generated_text"],
+                "original_text": original_text,
+                "generated_text": cleaned_generated_text,  # Use cleaned text
+                "generated_text_with_verification": generated_text,  # Keep full text for reference
                 "bias_scores": {
                     "original_bias_score": result["evaluation"]["bias_evaluation"]["original_bias"]["bias_score"],
                     "generated_bias_score": result["evaluation"]["bias_evaluation"]["generated_bias"]["bias_score"],
@@ -265,6 +272,11 @@ class ResultsExporter:
             bias_eval = result["evaluation"]["bias_evaluation"]
             quality_eval = result["evaluation"]
             
+            # Clean verification text for display
+            original_text = result['evaluation']['original_text']
+            generated_text = result['evaluation']['generated_text']
+            cleaned_generated_text = clean_verification_text(generated_text)
+            
             bias_reduction = bias_eval["bias_reduction_percentage"]
             is_neutral = bias_eval["successful_neutralization"]
             
@@ -281,11 +293,11 @@ class ResultsExporter:
                 <div class="text-comparison">
                     <div class="text-block original-text">
                         <div class="text-label">Original Text</div>
-                        {result['evaluation']['original_text']}
+                        {original_text}
                     </div>
                     <div class="text-block generated-text">
-                        <div class="text-label">Generated Text</div>
-                        {result['evaluation']['generated_text']}
+                        <div class="text-label">Generated Text (Cleaned)</div>
+                        {cleaned_generated_text}
                     </div>
                 </div>
                 
