@@ -38,6 +38,12 @@ ENV/
 data/outputs/**/*.json
 data/results/**/*.json
 data/results/**/*.html
+data/results/**/*.csv
+data/results/**/*.txt
+data/results/**/*.png
+data/results/**/*.jpg
+data/results/**/*.jpeg
+data/results/**/*.gif
 data/results/visualizations
 !data/outputs/.gitkeep
 !data/results/.gitkeep

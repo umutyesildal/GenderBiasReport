@@ -106,8 +106,8 @@ class StatisticalAnalyzer:
         result = {
             "dependent_variable": dependent_var,
             "independent_variable": independent_var,
-            "f_statistic": float(f_stat),
-            "p_value": float(p_value),
+            "f_statistic": float(f_stat) if not np.isnan(f_stat) else 0.0,
+            "p_value": float(p_value) if not np.isnan(p_value) else 0.0,
             "eta_squared": float(eta_squared),
             "groups": group_names,
             "group_means": [float(group.mean()) for group in groups],

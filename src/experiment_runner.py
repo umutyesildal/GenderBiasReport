@@ -91,7 +91,7 @@ class ExperimentRunner:
                             model_name: str, repetition: int) -> Dict[str, Any]:
         """Run a single experiment"""
         paragraph_id = paragraph_data['id']
-        paragraph_text = paragraph_data['paragraph']
+        paragraph_text = paragraph_data['text']  # Fix: use 'text' instead of 'paragraph'
         
         # Create experiment ID
         experiment_id = f"{paragraph_id}_{strategy_name}_{model_name}_rep{repetition}"
@@ -227,8 +227,15 @@ class ExperimentRunner:
             print(f"Progress saved. You can resume later.")
             return False
         
+        except Exception as e:
+            print(f"\n{Fore.RED}Experiment failed with error: {e}{Style.RESET_ALL}")
+            print(f"Progress saved. You can resume later.")
+            return False
+        
         finally:
             progress_bar.close()
+            # Always save final results, even if experiment was interrupted
+            print(f"\n{Fore.CYAN}Saving results...{Style.RESET_ALL}")
             self.save_final_results()
         
         total_time = time.time() - start_time
@@ -260,13 +267,19 @@ class ExperimentRunner:
     def save_final_results(self):
         """Save final experiment results"""
         try:
-            # Calculate aggregate statistics
-            aggregate_stats = self.evaluator.calculate_aggregate_scores(self.detailed_results)
+            # Calculate aggregate statistics if we have results
+            aggregate_stats = None
+            if self.detailed_results:
+                try:
+                    aggregate_stats = self.evaluator.calculate_aggregate_scores(self.detailed_results)
+                except Exception as e:
+                    print(f"{Fore.YELLOW}Warning: Could not calculate aggregate statistics: {e}{Style.RESET_ALL}")
+                    aggregate_stats = None
             
             final_results = {
                 "experiment_id": self.experiment_id,
                 "timestamp": datetime.now().isoformat(),
-                "status": "completed",
+                "status": "completed" if self.detailed_results else "incomplete",
                 "configuration": EXPERIMENT_CONFIG,
                 "total_experiments": len(self.detailed_results),
                 "aggregate_statistics": aggregate_stats,
@@ -277,16 +290,20 @@ class ExperimentRunner:
             save_json(final_results, self.results_file)
             print(f"{Fore.GREEN}✓ Final results saved to: {self.results_file}{Style.RESET_ALL}")
             
-            # Also create CSV summary for easy analysis
-            self.create_csv_summary(final_results)
+            # Also create CSV summary for easy analysis if we have results
+            if self.detailed_results:
+                self.create_csv_summary(final_results)
             
             # Clean up temporary files
             temp_file = RESULTS_DIR / f"temp_results_{self.experiment_id}.json"
             if temp_file.exists():
                 temp_file.unlink()
+                print(f"{Fore.GREEN}✓ Cleaned up temporary files{Style.RESET_ALL}")
                 
         except Exception as e:
             print(f"{Fore.RED}Error saving final results: {e}{Style.RESET_ALL}")
+            # If final save fails, at least try to preserve temp results
+            print(f"{Fore.YELLOW}Temp results may still be available in temp_results_{self.experiment_id}.json{Style.RESET_ALL}")
     
     def create_csv_summary(self, results: Dict):
         """Create CSV summary of results"""

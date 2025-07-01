@@ -2,20 +2,22 @@
 Main entry point for the Gender Bias in LLMs study
 """
 import sys
+import json
 import argparse
 from pathlib import Path
 from colorama import Fore, Style, init
+from datetime import datetime
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.utils import validate_environment, setup_logging
+from src.utils import validate_environment, setup_logging, save_json
 from src.data_processing import CorpusProcessor, create_corpus_template
 from src.llm_interface import LLMManager
 from src.prompting import PromptManager
 from src.experiment_runner import ExperimentRunner
 from src.analysis import ComprehensiveAnalyzer
-from src.config import RESULTS_DIR
+from src.config import RESULTS_DIR, EXPERIMENT_CONFIG
 
 init(autoreset=True)
 
@@ -108,13 +110,37 @@ def run_experiment(resume: bool = True):
         print(f"\n{Fore.GREEN}✓ Experiment completed successfully!{Style.RESET_ALL}")
         print(f"Results saved in: {runner.results_file}")
         
-        # Offer to run analysis
-        response = input("Run analysis now? (Y/n): ").lower().strip()
-        if response != 'n':
-            run_analysis(runner.results_file)
+        # Automatically run analysis and export like test_experiment.py does
+        print(f"\n{Fore.CYAN}Running post-experiment analysis and export...{Style.RESET_ALL}")
+        
+        try:
+            # Run analysis
+            analysis_success = run_analysis(runner.results_file)
+            
+            if analysis_success:
+                print(f"{Fore.GREEN}✓ Analysis completed successfully{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.YELLOW}Warning: Analysis had issues but experiment completed{Style.RESET_ALL}")
+                
+        except Exception as e:
+            print(f"{Fore.YELLOW}Warning: Post-experiment analysis failed: {e}{Style.RESET_ALL}")
+            print(f"You can run analysis manually with: python main.py analyze")
+        
     else:
         print(f"\n{Fore.YELLOW}Experiment stopped or failed.{Style.RESET_ALL}")
         print("You can resume later by running the same command.")
+        
+        # Check if there are temp results that can be analyzed
+        temp_files = list(RESULTS_DIR.glob("temp_results_*.json"))
+        if temp_files:
+            latest_temp = max(temp_files, key=lambda f: f.stat().st_mtime)
+            print(f"\n{Fore.CYAN}Found incomplete results: {latest_temp.name}{Style.RESET_ALL}")
+            response = input("Analyze incomplete results? (y/N): ").lower().strip()
+            if response == 'y':
+                try:
+                    run_analysis(latest_temp)
+                except Exception as e:
+                    print(f"{Fore.YELLOW}Analysis of incomplete results failed: {e}{Style.RESET_ALL}")
     
     return success
 
@@ -123,16 +149,22 @@ def run_analysis(results_file: Path = None):
     print(f"{Fore.CYAN}Running analysis and generating visualizations...{Style.RESET_ALL}")
     
     if results_file is None:
-        # Find the most recent results file
+        # Find the most recent results file - check both final and temp results
         results_files = list(RESULTS_DIR.glob("experiment_results_*.json"))
+        temp_files = list(RESULTS_DIR.glob("temp_results_*.json"))
         
-        if not results_files:
+        # Prefer final results, but fall back to temp results if no final results exist
+        if results_files:
+            results_file = max(results_files, key=lambda f: f.stat().st_mtime)
+            print(f"Using most recent final results: {results_file.name}")
+        elif temp_files:
+            results_file = max(temp_files, key=lambda f: f.stat().st_mtime)
+            print(f"{Fore.YELLOW}No final results found, using temp results: {results_file.name}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}Note: This may be from an incomplete experiment{Style.RESET_ALL}")
+        else:
             print(f"{Fore.RED}No experiment results found in {RESULTS_DIR}{Style.RESET_ALL}")
             print("Run the experiment first using: python main.py run-experiment")
             return False
-        
-        results_file = max(results_files, key=lambda f: f.stat().st_mtime)
-        print(f"Using most recent results: {results_file.name}")
     
     try:
         analyzer = ComprehensiveAnalyzer(results_file)
@@ -176,16 +208,19 @@ def export_results(results_file: Path = None):
     print(f"{Fore.CYAN}Exporting experiment results...{Style.RESET_ALL}")
     
     if results_file is None:
-        # Find the most recent results file
-        results_files = list(RESULTS_DIR.glob("*.json"))
-        results_files = [f for f in results_files if f.name.startswith(("experiment_results_", "test_results_"))]
+        # Find the most recent results file - check both final and temp results
+        results_files = list(RESULTS_DIR.glob("experiment_results_*.json"))
+        temp_files = list(RESULTS_DIR.glob("temp_results_*.json"))
+        test_files = list(RESULTS_DIR.glob("test_results_*.json"))
         
-        if not results_files:
+        all_files = results_files + temp_files + test_files
+        
+        if not all_files:
             print(f"{Fore.RED}No experiment results found in {RESULTS_DIR}{Style.RESET_ALL}")
             print("Run the experiment first using: python main.py run-experiment")
             return False
         
-        results_file = max(results_files, key=lambda f: f.stat().st_mtime)
+        results_file = max(all_files, key=lambda f: f.stat().st_mtime)
         print(f"Using most recent results: {results_file.name}")
     
     try:
@@ -219,16 +254,213 @@ def export_results(results_file: Path = None):
         return False
 
 def list_results():
-    """List all available experiment results"""
-    results_files = list(RESULTS_DIR.glob("experiment_results_*.json"))
+    """List all available result files"""
+    print(f"{Fore.CYAN}Available Results Files:{Style.RESET_ALL}")
+    print("=" * 50)
     
-    if not results_files:
-        print(f"{Fore.YELLOW}No experiment results found in {RESULTS_DIR}{Style.RESET_ALL}")
+    # Get all result files
+    experiment_files = list(RESULTS_DIR.glob("experiment_results_*.json"))
+    temp_files = list(RESULTS_DIR.glob("temp_results_*.json"))
+    test_files = list(RESULTS_DIR.glob("test_results_*.json"))
+    state_files = list(RESULTS_DIR.glob("experiment_state_*.json"))
+    
+    if not any([experiment_files, temp_files, test_files]):
+        print(f"{Fore.YELLOW}No result files found in {RESULTS_DIR}{Style.RESET_ALL}")
         return
     
-    print(f"{Fore.CYAN}Available experiment results:{Style.RESET_ALL}")
-    for i, file in enumerate(sorted(results_files, key=lambda f: f.stat().st_mtime, reverse=True)):
-        print(f"{i+1}. {file.name} (modified: {file.stat().st_mtime})")
+    # Sort by modification time
+    all_files = []
+    
+    for file in experiment_files:
+        try:
+            with open(file, 'r') as f:
+                data = json.load(f)
+                status = data.get('status', 'unknown')
+                total_experiments = data.get('total_experiments', 0)
+                timestamp = data.get('timestamp', 'unknown')
+            all_files.append({
+                'file': file,
+                'type': 'Final Results',
+                'status': status,
+                'experiments': total_experiments,
+                'timestamp': timestamp,
+                'mtime': file.stat().st_mtime
+            })
+        except Exception as e:
+            all_files.append({
+                'file': file,
+                'type': 'Final Results',
+                'status': f'Error: {e}',
+                'experiments': '?',
+                'timestamp': '?',
+                'mtime': file.stat().st_mtime
+            })
+    
+    for file in temp_files:
+        try:
+            with open(file, 'r') as f:
+                data = json.load(f)
+                status = data.get('status', 'unknown')
+                total_experiments = len(data.get('detailed_results', []))
+                timestamp = data.get('timestamp', 'unknown')
+            all_files.append({
+                'file': file,
+                'type': 'Temp Results',
+                'status': status,
+                'experiments': total_experiments,
+                'timestamp': timestamp,
+                'mtime': file.stat().st_mtime
+            })
+        except Exception as e:
+            all_files.append({
+                'file': file,
+                'type': 'Temp Results',
+                'status': f'Error: {e}',
+                'experiments': '?',
+                'timestamp': '?',
+                'mtime': file.stat().st_mtime
+            })
+    
+    for file in test_files:
+        try:
+            with open(file, 'r') as f:
+                data = json.load(f)
+                status = data.get('status', 'unknown')
+                total_experiments = data.get('total_experiments', 0)
+                timestamp = data.get('timestamp', 'unknown')
+            all_files.append({
+                'file': file,
+                'type': 'Test Results',
+                'status': status,
+                'experiments': total_experiments,
+                'timestamp': timestamp,
+                'mtime': file.stat().st_mtime
+            })
+        except Exception as e:
+            all_files.append({
+                'file': file,
+                'type': 'Test Results',
+                'status': f'Error: {e}',
+                'experiments': '?',
+                'timestamp': '?',
+                'mtime': file.stat().st_mtime
+            })
+    
+    # Sort by modification time (newest first)
+    all_files.sort(key=lambda x: x['mtime'], reverse=True)
+    
+    for file_info in all_files:
+        color = Fore.GREEN if file_info['status'] == 'completed' else Fore.YELLOW if file_info['status'] == 'in_progress' else Fore.RED
+        print(f"{color}{file_info['type']}: {file_info['file'].name}{Style.RESET_ALL}")
+        print(f"  Status: {file_info['status']}")
+        print(f"  Experiments: {file_info['experiments']}")
+        print(f"  Timestamp: {file_info['timestamp']}")
+        print()
+    
+    # Show state files
+    if state_files:
+        print(f"{Fore.CYAN}Experiment State Files:{Style.RESET_ALL}")
+        for file in sorted(state_files, key=lambda f: f.stat().st_mtime, reverse=True):
+            print(f"  {file.name}")
+    
+    return True
+
+def convert_temp_results():
+    """Convert temp results to final results format"""
+    print(f"{Fore.CYAN}Converting temp results to final format...{Style.RESET_ALL}")
+    
+    # Find temp result files
+    temp_files = list(RESULTS_DIR.glob("temp_results_*.json"))
+    
+    if not temp_files:
+        print(f"{Fore.YELLOW}No temp result files found{Style.RESET_ALL}")
+        return False
+    
+    # Sort by modification time (newest first)
+    temp_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    
+    print(f"Found {len(temp_files)} temp result files:")
+    for i, file in enumerate(temp_files):
+        try:
+            with open(file, 'r') as f:
+                data = json.load(f)
+            experiments = len(data.get('detailed_results', []))
+            timestamp = data.get('timestamp', 'unknown')
+            print(f"  {i+1}. {file.name} - {experiments} experiments ({timestamp})")
+        except Exception as e:
+            print(f"  {i+1}. {file.name} - Error reading file: {e}")
+    
+    # Ask user which file to convert
+    try:
+        choice = input(f"\n{Fore.YELLOW}Which file to convert? (1-{len(temp_files)}, or 'all'): {Style.RESET_ALL}").lower().strip()
+        
+        if choice == 'all':
+            files_to_convert = temp_files
+        else:
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(temp_files):
+                files_to_convert = [temp_files[choice_idx]]
+            else:
+                print(f"{Fore.RED}Invalid choice{Style.RESET_ALL}")
+                return False
+    except ValueError:
+        print(f"{Fore.RED}Invalid input{Style.RESET_ALL}")
+        return False
+    
+    # Convert selected files
+    success_count = 0
+    for temp_file in files_to_convert:
+        try:
+            # Load temp results
+            with open(temp_file, 'r') as f:
+                temp_data = json.load(f)
+            
+            detailed_results = temp_data.get('detailed_results', [])
+            experiment_id = temp_data.get('experiment_id', 'unknown')
+            
+            print(f"\nConverting {temp_file.name} ({len(detailed_results)} experiments)...")
+            
+            # Calculate aggregate statistics
+            from src.evaluation import ComprehensiveEvaluator
+            evaluator = ComprehensiveEvaluator()
+            aggregate_stats = None
+            
+            if detailed_results:
+                try:
+                    aggregate_stats = evaluator.calculate_aggregate_scores(detailed_results)
+                    print(f"✓ Calculated aggregate statistics")
+                except Exception as e:
+                    print(f"{Fore.YELLOW}Warning: Could not calculate aggregate statistics: {e}{Style.RESET_ALL}")
+            
+            # Create final results structure
+            final_results = {
+                "experiment_id": experiment_id,
+                "timestamp": datetime.now().isoformat(),
+                "status": "completed",
+                "configuration": EXPERIMENT_CONFIG,
+                "total_experiments": len(detailed_results),
+                "aggregate_statistics": aggregate_stats,
+                "detailed_results": detailed_results,
+                "final_progress": temp_data.get('progress', {})
+            }
+            
+            # Save final results
+            final_file = RESULTS_DIR / f"experiment_results_{experiment_id}.json"
+            save_json(final_results, final_file)
+            
+            print(f"{Fore.GREEN}✓ Final results saved to: {final_file.name}{Style.RESET_ALL}")
+            
+            # Remove temp file
+            temp_file.unlink()
+            print(f"{Fore.GREEN}✓ Cleaned up temp file{Style.RESET_ALL}")
+            
+            success_count += 1
+            
+        except Exception as e:
+            print(f"{Fore.RED}Error converting {temp_file.name}: {e}{Style.RESET_ALL}")
+    
+    print(f"\n{Fore.GREEN}Successfully converted {success_count}/{len(files_to_convert)} files{Style.RESET_ALL}")
+    return success_count > 0
 
 def main():
     """Main function with CLI interface"""
@@ -243,12 +475,13 @@ Examples:
   python main.py analyze               # Analyze most recent results
   python main.py export                # Export results to JSON/HTML viewer
   python main.py list-results          # List all available results
+  python main.py convert-temp          # Convert temp results to final format
         """
     )
     
     parser.add_argument(
         "command",
-        choices=["setup", "test", "run-experiment", "analyze", "export", "list-results"],
+        choices=["setup", "test", "run-experiment", "analyze", "export", "list-results", "convert-temp"],
         help="Command to run"
     )
     
@@ -298,6 +531,9 @@ Examples:
     
     elif args.command == "list-results":
         list_results()
+    
+    elif args.command == "convert-temp":
+        convert_temp_results()
     
     else:
         print(f"{Fore.RED}Unknown command: {args.command}{Style.RESET_ALL}")
