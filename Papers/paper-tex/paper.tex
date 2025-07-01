@@ -1,0 +1,158 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% ---------- Packages ----------
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{url}
+\usepackage{subcaption}
+% ------------------------------
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em%
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Identifying Optimal Prompting Strategies to Produce Gender-Neutral Educational Content: A Comparative Study of LLM Bias Mitigation Techniques
+%\thanks{Identify applicable funding agency here. If none, delete this.}
+}
+
+\author{
+\IEEEauthorblockN{Umut Yunus Yesildal}
+\IEEEauthorblockA{\textit{Student} \\
+\textit{Humboldt‑Universität zu Berlin}\\
+Berlin, Germany \\
+umut.yunus.yesildal@student.hu-berlin.de}
+\and
+\IEEEauthorblockN{Leo S. Rüdian}
+\IEEEauthorblockA{\textit{Supervisor} \\
+\textit{Humboldt‑Universität zu Berlin}\\
+Berlin, Germany \\
+ORCID: 0000‑0003‑3943‑4802}
+}
+
+\maketitle
+
+% ---------- Abstract ----------
+\begin{abstract}
+This paper presents a comprehensive experimental investigation of structured prompting strategies for mitigating gender bias in Large Language Model (LLM) generated educational content. We systematically evaluate four prompting approaches—Raw, System Prompt, Few-Shot, and Few-Shot with Verification—across 25 carefully curated educational paragraphs using OpenAI GPT-4 and Google Gemini. Our controlled experiment comprising 300 individual trials demonstrates that Few-Shot prompting with verification mechanisms achieves superior gender bias reduction while maintaining high text fluency and semantic fidelity. Through rigorous statistical analysis including ANOVA testing, we provide evidence-based recommendations for educators and content creators seeking to develop inclusive instructional materials. The study contributes both methodological frameworks for bias evaluation and practical guidelines for implementing gender-neutral content generation in educational technology systems.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Prompt engineering, gender bias, large language models, inclusive education, few-shot learning, educational content generation, bias mitigation
+\end{IEEEkeywords}
+
+% ---------- Sections ----------
+\section{Introduction}
+\input{sections/Introduction}
+
+\section{Related Work}
+\input{sections/RelatedWork}
+
+\section{Methodology}
+\input{sections/Methodology}
+
+\section{Results}
+\input{sections/Results}
+
+\section{Discussion}
+\input{sections/Discussion}
+
+\section{Conclusion}
+\input{sections/Conclusion}
+
+% ---------- Appendix ----------
+\appendix
+\section{Experimental Setup Details}
+\label{sec:appendix_setup}
+
+\subsection{Prompting Strategy Implementation}
+The complete prompting templates used in our experiments are provided here for reproducibility:
+
+\textbf{Raw Prompt Template:}
+\begin{verbatim}
+Rewrite the following paragraph clearly:
+[PARAGRAPH_TEXT]
+\end{verbatim}
+
+\textbf{System Prompt Template:}
+\begin{verbatim}
+System: You are an inclusive writing assistant. 
+Rewrite the following text using gender-neutral language.
+User: [PARAGRAPH_TEXT]
+\end{verbatim}
+
+\textbf{Few-Shot Prompt Template:}
+\begin{verbatim}
+System: You are an inclusive writing assistant. 
+Rewrite the text using gender-neutral language.
+User: Here are two examples:
+• Original: 'Every student must submit his paper.'
+  Neutral: 'All students must submit their papers.'
+• Original: 'A professor encourages his students.'
+  Neutral: 'Professors encourage their students.'
+Now rewrite this paragraph gender-neutrally:
+[PARAGRAPH_TEXT]
+\end{verbatim}
+
+\textbf{Few-Shot + Verification Template:}
+\begin{verbatim}
+[Same as Few-Shot above, plus:]
+After rewriting, check: 'Are there still gendered terms 
+(he/she/man/woman, etc.)? If yes, rewrite fully gender-neutral.'
+\end{verbatim}
+
+\subsection{Bias Detection Regex Patterns}
+Our automated bias detection system employed the following regex patterns, adapted from \cite{urchs2024chatgptbias}:
+
+\begin{itemize}
+\item \texttt{\\b(he|she|him|her|his|hers)\\b} - Personal pronouns
+\item \texttt{\\b(man|woman|men|women)\\b} - Gender-specific nouns
+\item \texttt{\\b(guy|guys|girl|girls|boy|boys)\\b} - Informal gender terms
+\item \texttt{\\b(gentleman|gentlemen|lady|ladies)\\b} - Formal gender terms
+\item \texttt{\\b(male|female|masculine|feminine)\\b} - Gender adjectives
+\end{itemize}
+
+\section{Additional Results}
+\label{sec:appendix_results}
+
+% Placeholder for additional tables and figures
+\begin{table}[h]
+\centering
+\caption{Complete Statistical Summary by Domain}
+\label{tab:domain_stats}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Domain} & \textbf{Raw} & \textbf{System} & \textbf{Few-Shot} & \textbf{FS+Ver} \\
+\hline
+STEM Subjects & [TBD] & [TBD] & [TBD] & [TBD] \\
+Humanities & [TBD] & [TBD] & [TBD] & [TBD] \\
+Social Sciences & [TBD] & [TBD] & [TBD] & [TBD] \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[h]
+\centering
+% Placeholder for correlation matrix
+\fbox{\parbox{0.8\textwidth}{\centering 
+\textbf{[FIGURE PLACEHOLDER]}\\
+Correlation Matrix: Bias Reduction vs. Fluency vs. BLEU-4\\
+Dimensions: Strategy comparison across all metrics}}
+\caption{Inter-metric correlation analysis showing trade-offs between bias reduction, fluency, and semantic preservation across prompting strategies.}
+\label{fig:correlation_matrix}
+\end{figure}
+
+% ---------- References ----------
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

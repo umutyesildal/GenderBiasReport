@@ -1,0 +1,35 @@
+\subsection{Gender Bias in Large Language Models}
+
+Gender bias in language models manifests through systematic preferences for particular gender representations, occupational stereotypes, and linguistic patterns that reinforce societal inequalities \cite{zhao2024multilangbias}. These biases emerge from training data that reflect historical and contemporary gender disparities across professional, academic, and social domains.
+
+In educational contexts, gender bias is particularly problematic as it can influence students' self-perception, career aspirations, and understanding of gender roles \cite{urchs2024chatgptbias}. Educational materials that consistently portray certain professions or characteristics as gender-specific can perpetuate stereotypes and limit students' potential for exploration across traditional gender boundaries.
+
+\subsection{Prompting Strategies for Bias Mitigation}
+
+Recent advances in prompt engineering have demonstrated significant potential for mitigating gender bias in LLM outputs. \textbf{Zeng et al. (2024)} conducted comprehensive experiments across multiple models (GPT, LLaMA) using structured prompting approaches including zero-shot instructions, few-shot examples, and chain-of-thought reasoning \cite{zeng2024debiasprompting}. Their findings indicate that few-shot prompting with explicit examples of gender-neutral language achieves substantial bias reduction on established benchmarks such as StereoSet and CrowS-Pairs.
+
+\textbf{Savoldi et al. (2024)} specifically examined gender-neutral translation capabilities in GPT-4, achieving approximately 70\% gender-neutral translations through systematic prompting approaches—a significant improvement over baseline machine translation systems \cite{savoldi2024neutraltranslation}. Their work highlights the importance of explicit instruction and example provision in guiding models toward inclusive language generation.
+
+\textbf{Urchs et al. (2024)} investigated ChatGPT's responses across German and English languages, revealing significant variations in gender bias depending on prompt formulation \cite{urchs2024chatgptbias}. Their research underscores the inadequacy of unstructured prompting methods for achieving consistent gender neutrality, particularly in morphologically rich languages where grammatical gender compounds bias effects.
+
+\subsection{Evaluation Approaches and Metrics}
+
+Evaluating gender bias in generated text requires sophisticated approaches that balance bias detection with assessment of text quality and semantic preservation. \textbf{You et al. (2024)} revealed critical limitations in current evaluation approaches, demonstrating that while LLMs achieve over 80\% accuracy in binary gender prediction tasks, performance drops below 40\% for gender-neutral names \cite{you2024beyondbinary}. This finding highlights the importance of comprehensive evaluation frameworks that account for non-binary and gender-diverse representations.
+
+Current evaluation approaches typically employ combination of automated detection methods using regular expressions or trained classifiers, alongside human evaluation for fluency and acceptability \cite{savoldi2024neutraltranslation}. However, the subjectivity inherent in gender bias assessment necessitates clear evaluation criteria and multiple assessment dimensions.
+
+\subsection{Gaps in Current Research}
+
+Despite significant progress in understanding and mitigating gender bias in LLMs, several gaps remain:
+
+\begin{enumerate}
+    \item \textbf{Educational Domain Specificity}: Most existing research focuses on general text generation or specific linguistic tasks rather than educational content where pedagogical considerations are paramount.
+    
+    \item \textbf{Systematic Strategy Comparison}: While individual prompting approaches have been studied, comprehensive comparative analyses across multiple strategies using identical evaluation frameworks remain limited.
+    
+    \item \textbf{Trade-off Analysis}: Limited research examines the relationships between bias reduction, text fluency, and semantic preservation—critical considerations for practical implementation.
+    
+    \item \textbf{Verification Mechanisms}: The potential of self-verification and correction mechanisms in prompting strategies has not been thoroughly investigated.
+\end{enumerate}
+
+Our research addresses these gaps by providing a systematic comparison of prompting strategies specifically within educational content domains, using comprehensive evaluation metrics that account for both bias mitigation and text quality preservation.

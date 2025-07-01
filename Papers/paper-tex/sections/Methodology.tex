@@ -1,0 +1,172 @@
+Our experimental design follows a systematic approach to evaluate four distinct prompting strategies for gender bias mitigation in educational content generation. This section details our corpus construction, prompting methodologies, experimental setup, and evaluation frameworks.
+
+\subsection{Educational Text Corpus}
+
+We constructed a carefully curated corpus of 25 educational paragraphs, each containing 200-250 tokens and exhibiting clear gendered language patterns. The corpus selection followed rigorous criteria to ensure representativeness and experimental validity.
+
+\subsubsection{Source Selection and Rationale}
+Educational materials were sourced primarily from established open educational resources to ensure quality and pedagogical relevance:
+\begin{itemize}
+    \item \textbf{OpenStax} (80\%): Comprehensive university-level textbooks across multiple disciplines
+    \item \textbf{BCcampus OpenEd} (10\%): Open educational resources focusing on diverse academic fields  
+    \item \textbf{MIT OpenCourseWare and Project Gutenberg} (10\%): Additional high-quality educational content
+\end{itemize}
+
+\subsubsection{Content Balance and Characteristics}
+The corpus maintains disciplinary balance with approximately 50\% STEM content (Psychology, Physics, Biology, Chemistry, Microbiology) and 50\% humanities content (History, Sociology, Anthropology, Political Economy, Education, Management). Each paragraph contains 1-12 gendered terms, providing varied complexity for bias mitigation testing.
+
+Selection criteria included: (1) clear instructional or explanatory style appropriate for educational contexts, (2) presence of gendered language patterns including pronouns (he/she/him/her/his/hers) and gendered terms (man/woman/boy/girl/male/female), and (3) content suitable for gender-neutral adaptation without loss of educational value.
+
+\subsection{Prompting Strategies}
+
+We systematically designed four prompting strategies representing a progression from minimal to comprehensive bias mitigation approaches, each grounded in established prompt engineering principles.
+
+\subsubsection{Strategy 1: Raw Prompt (Control)}
+\textbf{Rationale}: Establishes baseline LLM performance without explicit bias mitigation instructions, serving as our experimental control condition.
+
+\textbf{Implementation}: 
+\begin{verbatim}
+"Rewrite the following paragraph clearly:
+[Original paragraph]"
+\end{verbatim}
+
+\textbf{Expected Outcome}: Higher gender bias reflecting default model behavior, providing reference point for improvement measurement.
+
+\subsubsection{Strategy 2: System Prompt}
+\textbf{Rationale}: Tests effectiveness of explicit role assignment and direct instruction for bias mitigation, following approaches validated by Zeng et al. (2024) \cite{zeng2024debiasprompting}.
+
+\textbf{Implementation}:
+\begin{verbatim}
+System: "You are an inclusive writing assistant. 
+        Rewrite the following text using 
+        gender-neutral language."
+User: "[Original paragraph]"
+\end{verbatim}
+
+\textbf{Expected Outcome}: Reduced bias compared to raw prompt through explicit instruction, but limited by absence of concrete examples.
+
+\subsubsection{Strategy 3: Few-Shot Prompt}
+\textbf{Rationale}: Incorporates explicit examples of gender-neutral language transformation, leveraging few-shot learning principles demonstrated effective by Savoldi et al. (2024) \cite{savoldi2024neutraltranslation}.
+
+\textbf{Implementation}:
+\begin{verbatim}
+System: "You are an inclusive writing assistant. 
+        Rewrite the text using gender-neutral language."
+User: "Here are two examples of gender-neutral rewrites:
+
+Original: 'Every student must submit his paper.'
+Neutral: 'All students must submit their papers.'
+
+Original: 'A professor should encourage his students.'
+Neutral: 'Professors should encourage their students.'
+
+Now rewrite this paragraph clearly in gender-neutral language:
+[Original paragraph]"
+\end{verbatim}
+
+\textbf{Expected Outcome}: Significant bias reduction through concrete exemplars demonstrating desired transformation patterns.
+
+\subsubsection{Strategy 4: Few-Shot + Verification}
+\textbf{Rationale}: Extends few-shot approach with self-verification mechanism, testing hypothesis that explicit checking procedures enhance bias mitigation effectiveness.
+
+\textbf{Implementation}: Identical to Strategy 3 with additional verification instruction:
+\begin{verbatim}
+"After your initial rewrite, please verify: Are there still 
+gendered terms (he/she/him/her/his/hers/man/woman, etc.) in 
+your rewrite? If yes, rewrite again to be fully gender-neutral."
+\end{verbatim}
+
+\textbf{Expected Outcome}: Lowest bias levels through combination of examples and systematic checking procedures.
+
+\subsection{Experimental Setup}
+
+\subsubsection{Language Model Selection}
+We employed two leading LLM architectures to ensure robustness and generalizability:
+\begin{itemize}
+    \item \textbf{OpenAI GPT-4}: Industry-leading model with demonstrated text generation capabilities
+    \item \textbf{Google Gemini}: Alternative architecture providing cross-model validation
+\end{itemize}
+
+\subsubsection{Experimental Design}
+Our controlled experiment follows a factorial design:
+\begin{itemize}
+    \item \textbf{Factors}: 4 prompting strategies × 25 paragraphs × 2 LLMs × 3 repetitions
+    \item \textbf{Total Trials}: 600 individual experiments (300 per model)
+    \item \textbf{Randomization}: Paragraph order randomized to prevent order effects
+    \item \textbf{Replication}: Three repetitions per condition ensure statistical reliability
+\end{itemize}
+
+\subsection{Evaluation Framework}
+
+Our comprehensive evaluation framework addresses three critical dimensions: gender bias reduction, text quality preservation, and semantic fidelity.
+
+\subsubsection{Gender Bias Assessment}
+We implemented a systematic approach combining automated detection with validation procedures:
+
+\textbf{Automated Detection}: Regular expression patterns identify gendered terms including:
+\begin{itemize}
+    \item Personal pronouns: he, she, him, her, his, hers
+    \item General terms: man, woman, boy, girl, male, female, gentleman, lady
+    \item Professional terms: actor/actress, waiter/waitress, businessman/businesswoman
+    \item Family terms: father, mother, son, daughter, brother, sister
+\end{itemize}
+
+\textbf{Bias Reduction Calculation}:
+\begin{equation}
+\text{Bias Reduction \%} = \frac{\text{Original Terms} - \text{Generated Terms}}{\text{Original Terms}} \times 100
+\end{equation}
+
+\textbf{Binary Classification}: Texts achieving 100\% bias reduction (zero gendered terms) classified as gender-neutral.
+
+\subsubsection{Fluency Evaluation}
+Text quality assessment employs automated fluency scoring using established NLP metrics that correlate with human judgments of readability and naturalness. Fluency scores range from 0.0 (poor) to 1.0 (excellent), enabling quantitative quality comparison across strategies.
+
+\subsubsection{Semantic Preservation}
+We evaluate meaning preservation using BLEU-4 similarity scores \cite{papineni2002bleu}, measuring n-gram overlap between original and generated texts. BLEU-4 scores range from 0.0 (no similarity) to 1.0 (identical), providing objective assessment of content fidelity during bias mitigation.
+
+Additionally, we compute semantic similarity using sentence embeddings to capture deeper semantic relationships beyond surface-level n-gram matching.
+
+\subsection{Statistical Analysis}
+
+Results undergo rigorous statistical analysis to ensure robust conclusions:
+
+\begin{itemize}
+    \item \textbf{Descriptive Statistics}: Mean, standard deviation, and distribution analysis for all metrics across strategies
+    \item \textbf{ANOVA Testing}: Repeated-measures ANOVA to detect significant differences between prompting strategies
+    \item \textbf{Post-hoc Analysis}: Pairwise comparisons with Bonferroni correction for multiple comparisons
+    \item \textbf{Effect Size Calculation}: Eta-squared measures to assess practical significance
+    \item \textbf{Cross-Model Validation}: Separate analysis per LLM to identify strategy effectiveness generalization
+\end{itemize}
+
+Statistical significance threshold set at α = 0.05, with effect sizes interpreted following Cohen's conventions (small: η² ≥ 0.01, medium: η² ≥ 0.06, large: η² ≥ 0.14).
+
+\subsection{Experimental Workflow Overview}
+
+Figure~\ref{fig:methodology_workflow} illustrates our complete experimental methodology, showing the systematic progression from corpus construction through final analysis.
+
+\begin{figure*}[htbp]
+\centering
+% Placeholder for methodology workflow diagram
+\fbox{\parbox{\textwidth}{\centering 
+\textbf{[FIGURE PLACEHOLDER]}\\
+\textbf{Complete Experimental Workflow}\\
+\vspace{0.5cm}
+\textbf{Phase 1: Corpus Construction}\\
+Educational Text Sources → Content Selection → Bias Pattern Validation\\
+(25 paragraphs, 200-250 tokens each, 1-12 gendered terms)\\
+\vspace{0.3cm}
+\textbf{Phase 2: Strategy Implementation}\\
+Raw Prompt → System Prompt → Few-Shot → Few-Shot + Verification\\
+(4 strategies × progressive complexity)\\
+\vspace{0.3cm}
+\textbf{Phase 3: Experimental Execution}\\
+GPT-4 \& Gemini × 25 paragraphs × 4 strategies × 3 repetitions = 600 trials\\
+\vspace{0.3cm}
+\textbf{Phase 4: Multi-Dimensional Evaluation}\\
+Bias Detection (Regex + Manual) → Fluency Rating → BLEU-4 Analysis\\
+\vspace{0.3cm}
+\textbf{Phase 5: Statistical Analysis}\\
+ANOVA → Post-hoc Testing → Cross-Model Validation → Domain Analysis}}
+\caption{Complete experimental methodology workflow showing systematic progression from corpus construction through statistical analysis. The framework ensures rigorous evaluation across multiple dimensions while maintaining reproducibility and generalizability.}
+\label{fig:methodology_workflow}
+\end{figure*}
