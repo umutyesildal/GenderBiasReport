@@ -270,7 +270,7 @@ class TestExperimentRunner:
             print("=" * 50)
             
             # Show strategy performance
-            strategy_stats = analysis_results["descriptive_stats"]["by_strategy"]
+            strategy_stats = analysis_results["descriptive_statistics"]["by_strategy"]
             print(f"\n Strategy Performance:")
             for strategy, stats in strategy_stats.items():
                 bias_mean = stats["bias_reduction_percentage"]["mean"]
@@ -279,9 +279,34 @@ class TestExperimentRunner:
             
             # Show ANOVA results
             print(f"\n Statistical Tests:")
-            for metric, results in analysis_results["anova_results"].items():
-                significance = "OK Significant" if results["significant"] else "X Not significant"
-                print(f"  {metric}: {significance} (p={results['p_value']:.4f})")
+            for metric, results in analysis_results["statistical_analysis"].items():
+                if metric.startswith("anova_"):
+                    significance = "OK Significant" if results["significant"] else "X Not significant"
+                    print(f"  {metric.replace('anova_', '')}: {significance} (p={results['p_value']:.4f})")
+            
+            # Export data for easy viewing
+            print(f"\n{Fore.CYAN}Exporting results for viewing...{Style.RESET_ALL}")
+            try:
+                from src.data_export import export_experiment_data
+                exported_files = export_experiment_data(self.results_file)
+                
+                if exported_files:
+                    print(f"{Fore.GREEN}✓ Results exported:{Style.RESET_ALL}")
+                    for export_type, file_path in exported_files.items():
+                        print(f"  {export_type}: {file_path}")
+                    
+                    # Open HTML viewer in browser if available
+                    if "html_viewer" in exported_files:
+                        try:
+                            import webbrowser
+                            webbrowser.open(f"file://{exported_files['html_viewer']}")
+                            print(f"{Fore.GREEN}✓ HTML viewer opened in browser{Style.RESET_ALL}")
+                        except Exception as e:
+                            print(f"{Fore.YELLOW}Note: Could not auto-open browser: {e}{Style.RESET_ALL}")
+                            print(f"Manual open: file://{exported_files['html_viewer']}")
+                
+            except Exception as e:
+                print(f"{Fore.YELLOW}Warning: Data export failed: {e}{Style.RESET_ALL}")
             
             print(f"\nOK Test analysis complete!")
             return True

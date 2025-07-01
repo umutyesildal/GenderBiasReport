@@ -12,6 +12,7 @@ from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 import pandas as pd
 from colorama import init, Fore, Style
+import numpy as np
 
 # Initialize colorama for colored terminal output
 init(autoreset=True)
@@ -76,11 +77,41 @@ def validate_corpus_file(file_path: Path) -> bool:
         print(f"{Fore.RED}Error reading corpus file: {e}{Style.RESET_ALL}")
         return False
 
-def save_json(data: Any, file_path: Path, indent: int = 2):
-    """Save data to JSON file"""
+def json_serialize_helper(obj):
+    """Helper function to serialize NumPy types and other objects to JSON-compatible types"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, pd.Series):
+        return obj.tolist()
+    elif isinstance(obj, pd.DataFrame):
+        return obj.to_dict()
+    elif hasattr(obj, 'item'):
+        return obj.item()
+    elif hasattr(obj, 'tolist'):
+        return obj.tolist()
+    else:
+        return obj
+
+def save_json(data: Dict[str, Any], file_path: Path) -> bool:
+    """Save data to JSON file with proper serialization"""
     try:
+        # Convert numpy types and other non-serializable objects
+        def convert_types(obj):
+            if isinstance(obj, dict):
+                return {k: convert_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_types(item) for item in obj]
+            else:
+                return json_serialize_helper(obj)
+        
+        serializable_data = convert_types(data)
+        
         with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=indent, ensure_ascii=False)
+            json.dump(serializable_data, f, indent=2, ensure_ascii=False)
         return True
     except Exception as e:
         print(f"{Fore.RED}Error saving JSON file {file_path}: {e}{Style.RESET_ALL}")

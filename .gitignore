@@ -37,6 +37,7 @@ ENV/
 # Results and outputs (keep structure but not content)
 data/outputs/**/*.json
 data/results/**/*.json
+data/results/**/*.html
 data/results/visualizations
 !data/outputs/.gitkeep
 !data/results/.gitkeep

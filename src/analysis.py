@@ -28,7 +28,7 @@ class StatisticalAnalyzer:
         self.df = None
         
         # Set up visualization style
-        plt.style.use('default')  # Using default instead of seaborn-v0_8
+        plt.style.use('default')
         sns.set_palette(VIZ_CONFIG["color_palette"])
     
     def load_results(self, results_file: Path) -> bool:
@@ -98,63 +98,81 @@ class StatisticalAnalyzer:
         f_stat, p_value = f_oneway(*groups)
         
         # Calculate effect size (eta-squared)
-        ss_between = sum(len(group) * (group.mean() - self.df[dependent_var].mean())**2 for group in groups)
-        ss_total = ((self.df[dependent_var] - self.df[dependent_var].mean())**2).sum()
-        eta_squared = ss_between / ss_total
+        overall_mean = self.df[dependent_var].mean()
+        ss_between = sum(len(group) * (group.mean() - overall_mean)**2 for group in groups)
+        ss_total = sum((self.df[dependent_var] - overall_mean)**2)
+        eta_squared = ss_between / ss_total if ss_total > 0 else 0
         
-        # Group statistics
-        group_stats = {}
-        for i, group_name in enumerate(group_names):
-            group_stats[group_name] = {
-                "mean": groups[i].mean(),
-                "std": groups[i].std(),
-                "count": len(groups[i])
-            }
-        
-        return {
+        result = {
             "dependent_variable": dependent_var,
             "independent_variable": independent_var,
-            "f_statistic": f_stat,
-            "p_value": p_value,
-            "eta_squared": eta_squared,
-            "significant": p_value < 0.05,
-            "group_statistics": group_stats,
-            "group_names": group_names
+            "f_statistic": float(f_stat),
+            "p_value": float(p_value),
+            "eta_squared": float(eta_squared),
+            "groups": group_names,
+            "group_means": [float(group.mean()) for group in groups],
+            "group_stds": [float(group.std()) for group in groups],
+            "significant": bool(p_value < 0.05)
         }
+        
+        return result
     
     def perform_post_hoc_tests(self, dependent_var: str, independent_var: str = "strategy") -> Dict[str, Any]:
-        """Perform post-hoc pairwise comparisons"""
+        """Perform simplified post-hoc tests after ANOVA"""
+        if self.df is None:
+            raise ValueError("No data loaded. Call load_results() first.")
+        
         from scipy.stats import ttest_ind
         
-        groups = {}
-        for group_name in self.df[independent_var].unique():
-            groups[group_name] = self.df[self.df[independent_var] == group_name][dependent_var]
+        groups = []
+        group_names = list(self.df[independent_var].unique())
         
-        pairwise_results = {}
-        group_names = list(groups.keys())
+        for group_name in group_names:
+            group_data = self.df[self.df[independent_var] == group_name][dependent_var]
+            groups.append(group_data)
+        
+        # Perform pairwise t-tests with Bonferroni correction
+        significant_pairs = []
+        all_comparisons = []
         
         for i in range(len(group_names)):
             for j in range(i+1, len(group_names)):
-                group1_name = group_names[i]
-                group2_name = group_names[j]
-                
-                t_stat, p_val = ttest_ind(groups[group1_name], groups[group2_name])
-                
-                pairwise_results[f"{group1_name}_vs_{group2_name}"] = {
-                    "t_statistic": t_stat,
-                    "p_value": p_val,
-                    "significant": p_val < 0.05,
-                    "mean_diff": groups[group1_name].mean() - groups[group2_name].mean()
-                }
+                try:
+                    t_stat, p_val = ttest_ind(groups[i], groups[j])
+                    
+                    comparison = {
+                        "group1": group_names[i],
+                        "group2": group_names[j],
+                        "t_statistic": float(t_stat),
+                        "p_value": float(p_val),
+                        "mean_diff": float(groups[i].mean() - groups[j].mean())
+                    }
+                    all_comparisons.append(comparison)
+                    
+                    # Apply Bonferroni correction
+                    bonferroni_alpha = 0.05 / len(group_names)
+                    if p_val < bonferroni_alpha:
+                        significant_pairs.append(comparison)
+                        
+                except Exception as e:
+                    print(f"{Fore.YELLOW}Warning: t-test failed for {group_names[i]} vs {group_names[j]}: {e}{Style.RESET_ALL}")
         
-        return pairwise_results
+        result = {
+            "test_type": "Pairwise t-tests with Bonferroni correction",
+            "groups": group_names,
+            "bonferroni_alpha": 0.05 / len(group_names) if len(group_names) > 1 else 0.05,
+            "all_comparisons": all_comparisons,
+            "significant_pairs": significant_pairs
+        }
+        
+        return result
     
     def calculate_descriptive_statistics(self) -> Dict[str, Any]:
         """Calculate descriptive statistics for all metrics"""
         if self.df is None:
             raise ValueError("No data loaded. Call load_results() first.")
         
-        metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score", "semantic_similarity"]
+        metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score", "semantic_similarity", "generation_time"]
         
         descriptive_stats = {}
         
@@ -162,45 +180,45 @@ class StatisticalAnalyzer:
         descriptive_stats["overall"] = {}
         for metric in metrics:
             descriptive_stats["overall"][metric] = {
-                "mean": self.df[metric].mean(),
-                "std": self.df[metric].std(),
-                "min": self.df[metric].min(),
-                "max": self.df[metric].max(),
-                "median": self.df[metric].median(),
-                "q25": self.df[metric].quantile(0.25),
-                "q75": self.df[metric].quantile(0.75)
+                "mean": float(self.df[metric].mean()),
+                "std": float(self.df[metric].std()),
+                "min": float(self.df[metric].min()),
+                "max": float(self.df[metric].max()),
+                "median": float(self.df[metric].median()),
+                "q25": float(self.df[metric].quantile(0.25)),
+                "q75": float(self.df[metric].quantile(0.75))
             }
         
-        # Statistics by strategy
+        # By strategy
         descriptive_stats["by_strategy"] = {}
         for strategy in self.df["strategy"].unique():
-            strategy_df = self.df[self.df["strategy"] == strategy]
+            strategy_data = self.df[self.df["strategy"] == strategy]
             descriptive_stats["by_strategy"][strategy] = {}
             
             for metric in metrics:
                 descriptive_stats["by_strategy"][strategy][metric] = {
-                    "mean": strategy_df[metric].mean(),
-                    "std": strategy_df[metric].std(),
-                    "count": len(strategy_df)
+                    "mean": float(strategy_data[metric].mean()),
+                    "std": float(strategy_data[metric].std()),
+                    "count": int(len(strategy_data))
                 }
         
-        # Statistics by model
+        # By model
         descriptive_stats["by_model"] = {}
         for model in self.df["model"].unique():
-            model_df = self.df[self.df["model"] == model]
+            model_data = self.df[self.df["model"] == model]
             descriptive_stats["by_model"][model] = {}
             
             for metric in metrics:
                 descriptive_stats["by_model"][model][metric] = {
-                    "mean": model_df[metric].mean(),
-                    "std": model_df[metric].std(),
-                    "count": len(model_df)
+                    "mean": float(model_data[metric].mean()),
+                    "std": float(model_data[metric].std()),
+                    "count": int(len(model_data))
                 }
         
         return descriptive_stats
 
 class VisualizationGenerator:
-    """Generate comprehensive visualizations for the study"""
+    """Generate essential visualizations for the study"""
     
     def __init__(self, df: pd.DataFrame, output_dir: Path = None):
         self.df = df
@@ -212,391 +230,229 @@ class VisualizationGenerator:
         sns.set_palette(VIZ_CONFIG["color_palette"])
     
     def create_all_visualizations(self) -> List[str]:
-        """Create all visualizations and return list of saved files"""
+        """Create essential visualizations and return list of saved files"""
         saved_files = []
         
-        print(f"{Fore.CYAN}Generating visualizations...{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}Generating essential visualizations...{Style.RESET_ALL}")
         
-        # 1. Strategy comparison plots
+        # Only create essential visualizations to avoid clutter
+        # 1. Strategy comparison plots (most important) - properly scaled
         saved_files.extend(self.create_strategy_comparison_plots())
         
-        # 2. Model comparison plots
-        saved_files.extend(self.create_model_comparison_plots())
+        # 2. One key interactive plot for detailed exploration
+        saved_files.extend(self.create_key_interactive_plot())
         
-        # 3. Correlation analysis
-        saved_files.extend(self.create_correlation_plots())
+        # 3. Compact summary dashboard
+        saved_files.extend(self.create_compact_summary())
         
-        # 4. Distribution plots
-        saved_files.extend(self.create_distribution_plots())
-        
-        # 5. Time series and progression plots
-        saved_files.extend(self.create_progression_plots())
-        
-        # 6. Detailed metric analysis
-        saved_files.extend(self.create_detailed_metric_plots())
-        
-        # 7. Interactive plots
-        saved_files.extend(self.create_interactive_plots())
-        
-        # 8. Summary dashboard
-        saved_files.extend(self.create_summary_dashboard())
-        
-        print(f"{Fore.GREEN}✓ Generated {len(saved_files)} visualizations{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✓ Generated {len(saved_files)} essential visualizations{Style.RESET_ALL}")
         return saved_files
     
     def create_strategy_comparison_plots(self) -> List[str]:
-        """Create plots comparing different prompting strategies"""
+        """Create properly scaled plots comparing different prompting strategies"""
         saved_files = []
         
-        # 1. Box plots for each metric by strategy
-        metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score", "semantic_similarity"]
-        
+        # Create a comprehensive comparison with appropriate scaling
         fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-        axes = axes.ravel()
         
-        for i, metric in enumerate(metrics):
-            sns.boxplot(data=self.df, x="strategy", y=metric, ax=axes[i])
-            axes[i].set_title(f'{metric.replace("_", " ").title()} by Strategy')
-            axes[i].tick_params(axis='x', rotation=45)
+        # 1. Bias Reduction Percentage (0-100 scale)
+        sns.boxplot(data=self.df, x="strategy", y="bias_reduction_percentage", ax=axes[0,0])
+        axes[0,0].set_title('Bias Reduction by Strategy', fontsize=14, fontweight='bold')
+        axes[0,0].set_ylabel('Bias Reduction (%)')
+        axes[0,0].tick_params(axis='x', rotation=45)
+        axes[0,0].set_ylim(-10, 110)  # Allow for some outliers
         
-        plt.tight_layout()
-        file_path = self.output_dir / "strategy_comparison_boxplots.png"
-        plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-        plt.close()
-        saved_files.append(str(file_path))
+        # Add mean values as text
+        for i, strategy in enumerate(self.df['strategy'].unique()):
+            mean_val = self.df[self.df['strategy'] == strategy]['bias_reduction_percentage'].mean()
+            axes[0,0].text(i, mean_val + 5, f'{mean_val:.1f}%', ha='center', fontweight='bold')
         
-        # 2. Mean scores comparison
-        strategy_means = self.df.groupby("strategy")[metrics].mean()
-        
-        fig, ax = plt.subplots(figsize=(12, 8))
-        strategy_means.plot(kind='bar', ax=ax)
-        ax.set_title('Mean Scores by Strategy')
-        ax.set_ylabel('Score')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        
-        file_path = self.output_dir / "strategy_mean_scores.png"
-        plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-        plt.close()
-        saved_files.append(str(file_path))
-        
-        # 3. Success rate (gender neutralization) by strategy
+        # 2. Gender Neutralization Success Rate
         neutralization_rates = self.df.groupby("strategy")["is_gender_neutral"].mean()
-        
-        fig, ax = plt.subplots(figsize=(10, 6))
-        neutralization_rates.plot(kind='bar', ax=ax, color=sns.color_palette()[0])
-        ax.set_title('Gender Neutralization Success Rate by Strategy')
-        ax.set_ylabel('Success Rate')
-        ax.set_ylim(0, 1)
+        bars = axes[0,1].bar(range(len(neutralization_rates)), neutralization_rates.values, 
+                           color=sns.color_palette("viridis", len(neutralization_rates)))
+        axes[0,1].set_title('Gender Neutralization Success Rate by Strategy', fontsize=14, fontweight='bold')
+        axes[0,1].set_ylabel('Success Rate')
+        axes[0,1].set_ylim(0, 1.1)
+        axes[0,1].set_xticks(range(len(neutralization_rates)))
+        axes[0,1].set_xticklabels(neutralization_rates.index, rotation=45)
         
         # Add percentage labels on bars
-        for i, v in enumerate(neutralization_rates):
-            ax.text(i, v + 0.02, f'{v:.1%}', ha='center', va='bottom')
+        for i, v in enumerate(neutralization_rates.values):
+            axes[0,1].text(i, v + 0.05, f'{v:.1%}', ha='center', va='bottom', fontweight='bold')
         
-        plt.xticks(rotation=45)
+        # 3. Fluency Score (0-1 scale)
+        sns.boxplot(data=self.df, x="strategy", y="fluency_score", ax=axes[1,0])
+        axes[1,0].set_title('Fluency Score by Strategy', fontsize=14, fontweight='bold')
+        axes[1,0].set_ylabel('Fluency Score (0-1)')
+        axes[1,0].tick_params(axis='x', rotation=45)
+        axes[1,0].set_ylim(0, 1.05)
+        
+        # 4. Semantic Similarity (0-1 scale)
+        sns.boxplot(data=self.df, x="strategy", y="semantic_similarity", ax=axes[1,1])
+        axes[1,1].set_title('Semantic Similarity by Strategy', fontsize=14, fontweight='bold')
+        axes[1,1].set_ylabel('Semantic Similarity (0-1)')
+        axes[1,1].tick_params(axis='x', rotation=45)
+        axes[1,1].set_ylim(0, 1.05)
+        
         plt.tight_layout()
-        
-        file_path = self.output_dir / "neutralization_success_by_strategy.png"
+        file_path = self.output_dir / "strategy_comparison_comprehensive.png"
         plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
         plt.close()
         saved_files.append(str(file_path))
         
         return saved_files
     
-    def create_model_comparison_plots(self) -> List[str]:
-        """Create plots comparing different models"""
+    def create_key_interactive_plot(self) -> List[str]:
+        """Create one key interactive plot for detailed exploration"""
         saved_files = []
         
-        if self.df["model"].nunique() > 1:
-            metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score"]
+        # Interactive scatter plot: Bias Reduction vs Quality metrics
+        fig = make_subplots(
+            rows=1, cols=2,
+            subplot_titles=("Bias Reduction vs Fluency", "Bias Reduction vs Semantic Similarity"),
+            specs=[[{"secondary_y": False}, {"secondary_y": False}]]
+        )
+        
+        strategies = self.df['strategy'].unique()
+        colors = px.colors.qualitative.Set1[:len(strategies)]
+        
+        for i, strategy in enumerate(strategies):
+            strategy_data = self.df[self.df['strategy'] == strategy]
             
-            # Side-by-side comparison
-            fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+            # Plot 1: Bias Reduction vs Fluency
+            fig.add_trace(
+                go.Scatter(
+                    x=strategy_data['bias_reduction_percentage'],
+                    y=strategy_data['fluency_score'],
+                    mode='markers',
+                    name=f'{strategy} (Fluency)',
+                    marker=dict(color=colors[i], size=8),
+                    text=[f"ID: {id}<br>Fluency: {fluency:.3f}<br>Bias Reduction: {bias:.1f}%" 
+                          for id, fluency, bias in zip(strategy_data['experiment_id'], 
+                                                     strategy_data['fluency_score'], 
+                                                     strategy_data['bias_reduction_percentage'])],
+                    hovertemplate='<b>%{text}</b><extra></extra>',
+                    showlegend=True
+                ),
+                row=1, col=1
+            )
             
-            for i, metric in enumerate(metrics):
-                sns.boxplot(data=self.df, x="model", y=metric, ax=axes[i])
-                axes[i].set_title(f'{metric.replace("_", " ").title()} by Model')
-            
-            plt.tight_layout()
-            file_path = self.output_dir / "model_comparison.png"
-            plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-            plt.close()
-            saved_files.append(str(file_path))
+            # Plot 2: Bias Reduction vs Semantic Similarity
+            fig.add_trace(
+                go.Scatter(
+                    x=strategy_data['bias_reduction_percentage'],
+                    y=strategy_data['semantic_similarity'],
+                    mode='markers',
+                    name=f'{strategy} (Similarity)',
+                    marker=dict(color=colors[i], size=8),
+                    text=[f"ID: {id}<br>Similarity: {sim:.3f}<br>Bias Reduction: {bias:.1f}%" 
+                          for id, sim, bias in zip(strategy_data['experiment_id'], 
+                                                 strategy_data['semantic_similarity'], 
+                                                 strategy_data['bias_reduction_percentage'])],
+                    hovertemplate='<b>%{text}</b><extra></extra>',
+                    showlegend=False
+                ),
+                row=1, col=2
+            )
         
-        return saved_files
-    
-    def create_correlation_plots(self) -> List[str]:
-        """Create correlation analysis plots"""
-        saved_files = []
+        fig.update_xaxes(title_text="Bias Reduction (%)", row=1, col=1)
+        fig.update_xaxes(title_text="Bias Reduction (%)", row=1, col=2)
+        fig.update_yaxes(title_text="Fluency Score", row=1, col=1)
+        fig.update_yaxes(title_text="Semantic Similarity", row=1, col=2)
         
-        # Correlation heatmap
-        metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score", "semantic_similarity", "generation_time"]
-        corr_matrix = self.df[metrics].corr()
+        fig.update_layout(
+            title="Interactive Analysis: Bias Reduction vs Quality Metrics",
+            height=500,
+            hovermode='closest'
+        )
         
-        fig, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0, ax=ax)
-        ax.set_title('Correlation Matrix of Evaluation Metrics')
-        
-        plt.tight_layout()
-        file_path = self.output_dir / "correlation_matrix.png"
-        plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-        plt.close()
-        saved_files.append(str(file_path))
-        
-        # Scatter plots for key relationships
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-        
-        # Bias reduction vs Fluency
-        sns.scatterplot(data=self.df, x="bias_reduction_percentage", y="fluency_score", 
-                       hue="strategy", ax=axes[0, 0])
-        axes[0, 0].set_title('Bias Reduction vs Fluency')
-        
-        # Bias reduction vs BLEU score
-        sns.scatterplot(data=self.df, x="bias_reduction_percentage", y="bleu_4_score", 
-                       hue="strategy", ax=axes[0, 1])
-        axes[0, 1].set_title('Bias Reduction vs BLEU Score')
-        
-        # Fluency vs BLEU score
-        sns.scatterplot(data=self.df, x="fluency_score", y="bleu_4_score", 
-                       hue="strategy", ax=axes[1, 0])
-        axes[1, 0].set_title('Fluency vs BLEU Score')
-        
-        # Generation time vs bias reduction
-        sns.scatterplot(data=self.df, x="generation_time", y="bias_reduction_percentage", 
-                       hue="strategy", ax=axes[1, 1])
-        axes[1, 1].set_title('Generation Time vs Bias Reduction')
-        
-        plt.tight_layout()
-        file_path = self.output_dir / "scatter_plot_relationships.png"
-        plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-        plt.close()
-        saved_files.append(str(file_path))
-        
-        return saved_files
-    
-    def create_distribution_plots(self) -> List[str]:
-        """Create distribution plots for key metrics"""
-        saved_files = []
-        
-        metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score"]
-        
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        
-        for i, metric in enumerate(metrics):
-            # Histogram
-            self.df[metric].hist(bins=20, ax=axes[0, i], alpha=0.7)
-            axes[0, i].set_title(f'Distribution of {metric.replace("_", " ").title()}')
-            axes[0, i].set_xlabel(metric.replace("_", " ").title())
-            axes[0, i].set_ylabel('Frequency')
-            
-            # Distribution by strategy
-            for strategy in self.df["strategy"].unique():
-                strategy_data = self.df[self.df["strategy"] == strategy][metric]
-                axes[1, i].hist(strategy_data, alpha=0.5, label=strategy, bins=15)
-            
-            axes[1, i].set_title(f'{metric.replace("_", " ").title()} by Strategy')
-            axes[1, i].set_xlabel(metric.replace("_", " ").title())
-            axes[1, i].set_ylabel('Frequency')
-            axes[1, i].legend()
-        
-        plt.tight_layout()
-        file_path = self.output_dir / "distribution_plots.png"
-        plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-        plt.close()
+        file_path = self.output_dir / "interactive_bias_quality_analysis.html"
+        fig.write_html(str(file_path))
         saved_files.append(str(file_path))
         
         return saved_files
     
-    def create_progression_plots(self) -> List[str]:
-        """Create progression and time-based plots"""
+    def create_compact_summary(self) -> List[str]:
+        """Create a compact summary dashboard"""
         saved_files = []
         
-        # Performance by repetition (learning effect)
-        if self.df["repetition"].nunique() > 1:
-            fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-            axes = axes.ravel()
-            
-            metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score", "generation_time"]
-            
-            for i, metric in enumerate(metrics):
-                repetition_means = self.df.groupby(["strategy", "repetition"])[metric].mean().reset_index()
-                
-                for strategy in self.df["strategy"].unique():
-                    strategy_data = repetition_means[repetition_means["strategy"] == strategy]
-                    axes[i].plot(strategy_data["repetition"], strategy_data[metric], 
-                               marker='o', label=strategy)
-                
-                axes[i].set_title(f'{metric.replace("_", " ").title()} by Repetition')
-                axes[i].set_xlabel('Repetition')
-                axes[i].set_ylabel(metric.replace("_", " ").title())
-                axes[i].legend()
-                axes[i].grid(True, alpha=0.3)
-            
-            plt.tight_layout()
-            file_path = self.output_dir / "progression_by_repetition.png"
-            plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-            plt.close()
-            saved_files.append(str(file_path))
+        # Calculate key statistics
+        overall_stats = {
+            'total_experiments': len(self.df),
+            'strategies_tested': self.df['strategy'].nunique(),
+            'avg_bias_reduction': self.df['bias_reduction_percentage'].mean(),
+            'neutralization_success_rate': self.df['is_gender_neutral'].mean(),
+            'avg_fluency': self.df['fluency_score'].mean(),
+            'avg_semantic_similarity': self.df['semantic_similarity'].mean()
+        }
         
-        return saved_files
-    
-    def create_detailed_metric_plots(self) -> List[str]:
-        """Create detailed analysis plots for specific metrics"""
-        saved_files = []
+        strategy_stats = self.df.groupby('strategy').agg({
+            'bias_reduction_percentage': ['mean', 'std'],
+            'is_gender_neutral': 'mean',
+            'fluency_score': 'mean',
+            'semantic_similarity': 'mean'
+        }).round(3)
         
-        # Bias reduction effectiveness
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        # Create summary plot
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        fig.suptitle('Gender Bias Study - Summary Dashboard', fontsize=16, fontweight='bold')
         
-        # Original vs Generated bias scores
-        axes[0, 0].scatter(self.df["original_bias_score"], self.df["generated_bias_score"], 
-                          c=self.df["strategy"].astype('category').cat.codes, alpha=0.6)
-        axes[0, 0].plot([0, self.df["original_bias_score"].max()], 
-                       [0, self.df["original_bias_score"].max()], 'r--', alpha=0.5)
-        axes[0, 0].set_xlabel('Original Bias Score')
-        axes[0, 0].set_ylabel('Generated Bias Score')
-        axes[0, 0].set_title('Bias Score: Original vs Generated')
+        # 1. Overall metrics bar chart
+        metrics = ['Avg Bias Reduction (%)', 'Neutralization Rate (%)', 'Avg Fluency', 'Avg Similarity']
+        values = [overall_stats['avg_bias_reduction'], 
+                 overall_stats['neutralization_success_rate'] * 100,
+                 overall_stats['avg_fluency'] * 100,
+                 overall_stats['avg_semantic_similarity'] * 100]
         
-        # Gendered terms reduction
-        axes[0, 1].scatter(self.df["total_gendered_terms_original"], 
-                          self.df["total_gendered_terms_generated"], alpha=0.6)
-        axes[0, 1].plot([0, self.df["total_gendered_terms_original"].max()], 
-                       [0, self.df["total_gendered_terms_original"].max()], 'r--', alpha=0.5)
-        axes[0, 1].set_xlabel('Original Gendered Terms Count')
-        axes[0, 1].set_ylabel('Generated Gendered Terms Count')
-        axes[0, 1].set_title('Gendered Terms: Original vs Generated')
+        bars = axes[0,0].bar(metrics, values, color=['#e74c3c', '#27ae60', '#3498db', '#f39c12'])
+        axes[0,0].set_title('Overall Performance Metrics')
+        axes[0,0].tick_params(axis='x', rotation=45)
         
-        # Strategy effectiveness
-        strategy_effectiveness = self.df.groupby("strategy").agg({
-            "bias_reduction_percentage": "mean",
-            "is_gender_neutral": "mean",
-            "fluency_score": "mean"
-        })
+        # Add value labels on bars
+        for bar, value in zip(bars, values):
+            height = bar.get_height()
+            axes[0,0].text(bar.get_x() + bar.get_width()/2., height + 1,
+                          f'{value:.1f}%' if 'Rate' in metrics[values.index(value)] or 'Reduction' in metrics[values.index(value)] 
+                          else f'{value:.1f}',
+                          ha='center', va='bottom', fontweight='bold')
         
-        x = range(len(strategy_effectiveness))
-        width = 0.25
+        # 2. Strategy performance heatmap
+        heatmap_data = strategy_stats.xs('mean', level=1, axis=1)
+        heatmap_data.columns = ['Bias Reduction %', 'Neutralization Rate', 'Fluency', 'Similarity']
         
-        axes[1, 0].bar([i - width for i in x], strategy_effectiveness["bias_reduction_percentage"], 
-                      width, label='Bias Reduction %', alpha=0.8)
-        axes[1, 0].bar(x, strategy_effectiveness["is_gender_neutral"] * 100, 
-                      width, label='Neutralization Success %', alpha=0.8)
-        axes[1, 0].bar([i + width for i in x], strategy_effectiveness["fluency_score"] * 100, 
-                      width, label='Fluency Score * 100', alpha=0.8)
+        sns.heatmap(heatmap_data, annot=True, fmt='.2f', cmap='RdYlGn', 
+                   ax=axes[0,1], cbar_kws={'label': 'Score'})
+        axes[0,1].set_title('Strategy Performance Heatmap')
+        axes[0,1].set_xlabel('')
         
-        axes[1, 0].set_xlabel('Strategy')
-        axes[1, 0].set_ylabel('Score')
-        axes[1, 0].set_title('Strategy Effectiveness Comparison')
-        axes[1, 0].set_xticks(x)
-        axes[1, 0].set_xticklabels(strategy_effectiveness.index, rotation=45)
-        axes[1, 0].legend()
+        # 3. Distribution of bias reduction
+        axes[1,0].hist(self.df['bias_reduction_percentage'], bins=10, alpha=0.7, color='#3498db', edgecolor='black')
+        axes[1,0].axvline(overall_stats['avg_bias_reduction'], color='red', linestyle='--', linewidth=2, label=f'Mean: {overall_stats["avg_bias_reduction"]:.1f}%')
+        axes[1,0].set_title('Distribution of Bias Reduction')
+        axes[1,0].set_xlabel('Bias Reduction (%)')
+        axes[1,0].set_ylabel('Frequency')
+        axes[1,0].legend()
         
-        # Error analysis
-        failed_neutralizations = self.df[self.df["is_gender_neutral"] == False]
-        if len(failed_neutralizations) > 0:
-            failed_by_strategy = failed_neutralizations["strategy"].value_counts()
-            axes[1, 1].pie(failed_by_strategy.values, labels=failed_by_strategy.index, autopct='%1.1f%%')
-            axes[1, 1].set_title('Failed Neutralizations by Strategy')
-        else:
-            axes[1, 1].text(0.5, 0.5, 'All neutralizations successful!', 
-                           ha='center', va='center', transform=axes[1, 1].transAxes)
-            axes[1, 1].set_title('Neutralization Success Rate')
-        
-        plt.tight_layout()
-        file_path = self.output_dir / "detailed_metric_analysis.png"
-        plt.savefig(file_path, dpi=VIZ_CONFIG["dpi"], bbox_inches='tight')
-        plt.close()
-        saved_files.append(str(file_path))
-        
-        return saved_files
-    
-    def create_interactive_plots(self) -> List[str]:
-        """Create interactive plots using Plotly"""
-        saved_files = []
-        
-        # Interactive scatter plot
-        fig = px.scatter(self.df, x="bias_reduction_percentage", y="fluency_score",
-                        color="strategy", size="bleu_4_score", hover_data=["paragraph_id", "model"],
-                        title="Interactive Analysis: Bias Reduction vs Fluency")
-        
-        file_path = self.output_dir / "interactive_scatter.html"
-        fig.write_html(file_path)
-        saved_files.append(str(file_path))
-        
-        # Interactive box plots
-        fig = px.box(self.df, x="strategy", y="bias_reduction_percentage", 
-                    color="model", title="Bias Reduction by Strategy and Model")
-        
-        file_path = self.output_dir / "interactive_boxplot.html"
-        fig.write_html(file_path)
-        saved_files.append(str(file_path))
-        
-        return saved_files
-    
-    def create_summary_dashboard(self) -> List[str]:
-        """Create a comprehensive summary dashboard"""
-        saved_files = []
-        
-        # Create a 2x3 subplot layout for dashboard
-        fig, axes = plt.subplots(2, 3, figsize=(20, 12))
-        
-        # 1. Overall performance by strategy
-        strategy_means = self.df.groupby("strategy")["bias_reduction_percentage"].mean()
-        axes[0, 0].bar(strategy_means.index, strategy_means.values)
-        axes[0, 0].set_title('Mean Bias Reduction by Strategy')
-        axes[0, 0].set_ylabel('Bias Reduction %')
-        axes[0, 0].tick_params(axis='x', rotation=45)
-        
-        # 2. Success rates
-        success_rates = self.df.groupby("strategy")["is_gender_neutral"].mean()
-        axes[0, 1].bar(success_rates.index, success_rates.values, color='green', alpha=0.7)
-        axes[0, 1].set_title('Gender Neutralization Success Rate')
-        axes[0, 1].set_ylabel('Success Rate')
-        axes[0, 1].tick_params(axis='x', rotation=45)
-        
-        # 3. Quality metrics
-        quality_metrics = self.df.groupby("strategy")[["fluency_score", "bleu_4_score"]].mean()
-        quality_metrics.plot(kind='bar', ax=axes[0, 2])
-        axes[0, 2].set_title('Quality Metrics by Strategy')
-        axes[0, 2].set_ylabel('Score')
-        axes[0, 2].tick_params(axis='x', rotation=45)
-        axes[0, 2].legend()
-        
-        # 4. Trade-off analysis
-        axes[1, 0].scatter(self.df["bias_reduction_percentage"], self.df["fluency_score"], 
-                          c=self.df["strategy"].astype('category').cat.codes, alpha=0.6)
-        axes[1, 0].set_xlabel('Bias Reduction %')
-        axes[1, 0].set_ylabel('Fluency Score')
-        axes[1, 0].set_title('Trade-off: Bias Reduction vs Fluency')
-        
-        # 5. Performance distribution
-        self.df["bias_reduction_percentage"].hist(bins=20, ax=axes[1, 1], alpha=0.7)
-        axes[1, 1].axvline(self.df["bias_reduction_percentage"].mean(), color='red', 
-                          linestyle='--', label=f'Mean: {self.df["bias_reduction_percentage"].mean():.1f}%')
-        axes[1, 1].set_title('Distribution of Bias Reduction')
-        axes[1, 1].set_xlabel('Bias Reduction %')
-        axes[1, 1].set_ylabel('Frequency')
-        axes[1, 1].legend()
-        
-        # 6. Summary statistics table
-        axes[1, 2].axis('tight')
-        axes[1, 2].axis('off')
-        
-        summary_stats = self.df.groupby("strategy").agg({
-            "bias_reduction_percentage": ["mean", "std"],
-            "is_gender_neutral": "mean",
-            "fluency_score": "mean"
-        }).round(2)
-        
-        # Flatten column names
-        summary_stats.columns = ['_'.join(col).strip() for col in summary_stats.columns]
-        
-        table_data = summary_stats.reset_index().values
-        table = axes[1, 2].table(cellText=table_data, 
-                                colLabels=['Strategy'] + list(summary_stats.columns),
-                                cellLoc='center', loc='center')
-        table.auto_set_font_size(False)
-        table.set_fontsize(8)
-        axes[1, 2].set_title('Summary Statistics by Strategy')
+        # 4. Key statistics text
+        axes[1,1].axis('off')
+        stats_text = f"""
+KEY FINDINGS:
+
+• Total Experiments: {overall_stats['total_experiments']}
+• Strategies Tested: {overall_stats['strategies_tested']}
+
+• Average Bias Reduction: {overall_stats['avg_bias_reduction']:.1f}%
+• Gender Neutralization Success: {overall_stats['neutralization_success_rate']:.1%}
+
+• Average Fluency Score: {overall_stats['avg_fluency']:.3f}
+• Average Semantic Similarity: {overall_stats['avg_semantic_similarity']:.3f}
+
+Best Strategy: {strategy_stats.xs('mean', level=1, axis=1)['bias_reduction_percentage'].idxmax()}
+"""
+        axes[1,1].text(0.1, 0.9, stats_text, transform=axes[1,1].transAxes, 
+                      fontsize=12, verticalalignment='top', 
+                      bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgray", alpha=0.8))
         
         plt.tight_layout()
         file_path = self.output_dir / "summary_dashboard.png"
@@ -607,86 +463,66 @@ class VisualizationGenerator:
         return saved_files
 
 class ComprehensiveAnalyzer:
-    """Main class combining statistical analysis and visualization"""
+    """Main analyzer class that combines statistical analysis and visualization"""
     
     def __init__(self, results_file: Path):
-        self.analyzer = StatisticalAnalyzer()
         self.results_file = results_file
+        self.analyzer = StatisticalAnalyzer(results_file)
+        self.visualizer = None
         
-        if not self.analyzer.load_results(results_file):
-            raise ValueError(f"Could not load results from {results_file}")
-        
-        self.visualizer = VisualizationGenerator(self.analyzer.df)
-    
     def run_complete_analysis(self) -> Dict[str, Any]:
-        """Run complete statistical analysis and generate all visualizations"""
+        """Run complete statistical analysis and generate visualizations"""
         print(f"{Fore.CYAN}Running comprehensive analysis...{Style.RESET_ALL}")
         
-        analysis_results = {}
+        # Load results
+        if not self.analyzer.load_results(self.results_file):
+            return None
         
-        # 1. Descriptive statistics
-        print("Computing descriptive statistics...")
-        analysis_results["descriptive_stats"] = self.analyzer.calculate_descriptive_statistics()
+        # Initialize visualizer
+        self.visualizer = VisualizationGenerator(self.analyzer.df)
         
-        # 2. ANOVA tests for each metric
-        print("Performing ANOVA tests...")
-        metrics = ["bias_reduction_percentage", "fluency_score", "bleu_4_score", "semantic_similarity"]
-        analysis_results["anova_results"] = {}
+        analysis_results = {
+            "file_path": str(self.results_file),
+            "timestamp": datetime.now().isoformat(),
+            "statistical_analysis": {},
+            "descriptive_statistics": {},
+            "visualizations": []
+        }
         
-        for metric in metrics:
-            analysis_results["anova_results"][metric] = self.analyzer.perform_anova(metric)
-            
-            # Post-hoc tests if ANOVA is significant
-            if analysis_results["anova_results"][metric]["significant"]:
-                analysis_results["anova_results"][metric]["post_hoc"] = self.analyzer.perform_post_hoc_tests(metric)
+        # Descriptive statistics
+        print(f"{Fore.CYAN}Computing descriptive statistics...{Style.RESET_ALL}")
+        analysis_results["descriptive_statistics"] = self.analyzer.calculate_descriptive_statistics()
         
-        # 3. Generate all visualizations
-        print("Generating visualizations...")
-        saved_visualizations = self.visualizer.create_all_visualizations()
-        analysis_results["visualization_files"] = saved_visualizations
+        # ANOVA tests for key metrics
+        print(f"{Fore.CYAN}Performing ANOVA tests...{Style.RESET_ALL}")
+        key_metrics = ["bias_reduction_percentage", "fluency_score", "semantic_similarity"]
         
-        # 4. Save complete analysis results
-        analysis_file = RESULTS_DIR / f"complete_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        save_json(analysis_results, analysis_file)
+        for metric in key_metrics:
+            try:
+                anova_result = self.analyzer.perform_anova(metric, "strategy")
+                analysis_results["statistical_analysis"][f"anova_{metric}"] = anova_result
+                
+                # Post-hoc tests if ANOVA is significant
+                if anova_result["significant"]:
+                    posthoc_result = self.analyzer.perform_post_hoc_tests(metric, "strategy")
+                    analysis_results["statistical_analysis"][f"posthoc_{metric}"] = posthoc_result
+                    
+            except Exception as e:
+                print(f"{Fore.YELLOW}Warning: Analysis failed for {metric}: {e}{Style.RESET_ALL}")
         
-        print(f"{Fore.GREEN}✓ Complete analysis saved to: {analysis_file}{Style.RESET_ALL}")
-        print(f"✓ Generated {len(saved_visualizations)} visualizations")
+        # Generate visualizations
+        print(f"{Fore.CYAN}Generating visualizations...{Style.RESET_ALL}")
+        viz_files = self.visualizer.create_all_visualizations()
+        analysis_results["visualizations"] = viz_files
         
+        # Save analysis results
+        output_file = self.results_file.parent / f"complete_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        save_json(analysis_results, output_file)
+        
+        print(f"{Fore.GREEN}✓ Complete analysis saved to: {output_file}{Style.RESET_ALL}")
         return analysis_results
-    
-    def print_analysis_summary(self, analysis_results: Dict[str, Any]):
-        """Print a summary of the analysis results"""
-        print(f"\n{Fore.CYAN}=== ANALYSIS SUMMARY ==={Style.RESET_ALL}")
-        
-        # ANOVA results summary
-        print(f"\n{Fore.YELLOW}Statistical Significance Tests (ANOVA):{Style.RESET_ALL}")
-        for metric, results in analysis_results["anova_results"].items():
-            significance = "✓ Significant" if results["significant"] else "✗ Not significant"
-            color = Fore.GREEN if results["significant"] else Fore.RED
-            print(f"{color}{metric}: {significance} (p={results['p_value']:.4f}){Style.RESET_ALL}")
-        
-        # Best performing strategies
-        print(f"\n{Fore.YELLOW}Strategy Performance Summary:{Style.RESET_ALL}")
-        strategy_stats = analysis_results["descriptive_stats"]["by_strategy"]
-        
-        for metric in ["bias_reduction_percentage", "fluency_score"]:
-            best_strategy = max(strategy_stats.keys(), 
-                              key=lambda s: strategy_stats[s][metric]["mean"])
-            best_score = strategy_stats[best_strategy][metric]["mean"]
-            print(f"Best {metric}: {best_strategy} ({best_score:.2f})")
 
-if __name__ == "__main__":
-    # Find the most recent results file
-    results_files = list(RESULTS_DIR.glob("experiment_results_*.json"))
-    
-    if not results_files:
-        print(f"{Fore.RED}No experiment results found in {RESULTS_DIR}{Style.RESET_ALL}")
-        print("Run the experiment first using experiment_runner.py")
-    else:
-        # Use the most recent results file
-        latest_results = max(results_files, key=lambda f: f.stat().st_mtime)
-        print(f"Analyzing results from: {latest_results}")
-        
-        analyzer = ComprehensiveAnalyzer(latest_results)
-        analysis_results = analyzer.run_complete_analysis()
-        analyzer.print_analysis_summary(analysis_results)
+def analyze_results(results_file: Path) -> Dict[str, Any]:
+    """Main function to analyze experiment results"""
+    analyzer = ComprehensiveAnalyzer(results_file)
+    return analyzer.run_complete_analysis()

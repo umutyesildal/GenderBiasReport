@@ -137,13 +137,85 @@ def run_analysis(results_file: Path = None):
     try:
         analyzer = ComprehensiveAnalyzer(results_file)
         analysis_results = analyzer.run_complete_analysis()
-        analyzer.print_analysis_summary(analysis_results)
+        
+        print(f"\n{Fore.GREEN}✓ Statistical analysis complete!{Style.RESET_ALL}")
+        
+        # Export data for easy viewing
+        print(f"\n{Fore.CYAN}Exporting results for viewing...{Style.RESET_ALL}")
+        try:
+            from src.data_export import export_experiment_data
+            exported_files = export_experiment_data(results_file)
+            
+            if exported_files:
+                print(f"{Fore.GREEN}✓ Results exported:{Style.RESET_ALL}")
+                for export_type, file_path in exported_files.items():
+                    print(f"  {export_type}: {file_path}")
+                
+                # Open HTML viewer in browser if available
+                if "html_viewer" in exported_files:
+                    try:
+                        import webbrowser
+                        webbrowser.open(f"file://{exported_files['html_viewer']}")
+                        print(f"{Fore.GREEN}✓ HTML viewer opened in browser{Style.RESET_ALL}")
+                    except Exception as e:
+                        print(f"{Fore.YELLOW}Note: Could not auto-open browser: {e}{Style.RESET_ALL}")
+                        print(f"Manual open: file://{exported_files['html_viewer']}")
+            
+        except Exception as e:
+            print(f"{Fore.YELLOW}Warning: Data export failed: {e}{Style.RESET_ALL}")
         
         print(f"\n{Fore.GREEN}✓ Analysis complete!{Style.RESET_ALL}")
         return True
         
     except Exception as e:
         print(f"{Fore.RED}Analysis failed: {e}{Style.RESET_ALL}")
+        return False
+
+def export_results(results_file: Path = None):
+    """Export results to JSON and HTML viewer"""
+    print(f"{Fore.CYAN}Exporting experiment results...{Style.RESET_ALL}")
+    
+    if results_file is None:
+        # Find the most recent results file
+        results_files = list(RESULTS_DIR.glob("*.json"))
+        results_files = [f for f in results_files if f.name.startswith(("experiment_results_", "test_results_"))]
+        
+        if not results_files:
+            print(f"{Fore.RED}No experiment results found in {RESULTS_DIR}{Style.RESET_ALL}")
+            print("Run the experiment first using: python main.py run-experiment")
+            return False
+        
+        results_file = max(results_files, key=lambda f: f.stat().st_mtime)
+        print(f"Using most recent results: {results_file.name}")
+    
+    try:
+        from src.data_export import export_experiment_data
+        exported_files = export_experiment_data(results_file)
+        
+        if exported_files:
+            print(f"{Fore.GREEN}✓ Results exported:{Style.RESET_ALL}")
+            for export_type, file_path in exported_files.items():
+                print(f"  {export_type}: {file_path}")
+            
+            # Open HTML viewer in browser if available
+            if "html_viewer" in exported_files:
+                response = input(f"{Fore.YELLOW}Open HTML viewer in browser? (Y/n): {Style.RESET_ALL}").lower().strip()
+                if response != 'n':
+                    try:
+                        import webbrowser
+                        webbrowser.open(f"file://{exported_files['html_viewer']}")
+                        print(f"{Fore.GREEN}✓ HTML viewer opened in browser{Style.RESET_ALL}")
+                    except Exception as e:
+                        print(f"{Fore.YELLOW}Could not auto-open browser: {e}{Style.RESET_ALL}")
+                        print(f"Manual open: file://{exported_files['html_viewer']}")
+            
+            return True
+        else:
+            print(f"{Fore.RED}Export failed{Style.RESET_ALL}")
+            return False
+            
+    except Exception as e:
+        print(f"{Fore.RED}Export failed: {e}{Style.RESET_ALL}")
         return False
 
 def list_results():
@@ -169,13 +241,14 @@ Examples:
   python main.py test                  # Test all components
   python main.py run-experiment        # Run the full experiment
   python main.py analyze               # Analyze most recent results
+  python main.py export                # Export results to JSON/HTML viewer
   python main.py list-results          # List all available results
         """
     )
     
     parser.add_argument(
         "command",
-        choices=["setup", "test", "run-experiment", "analyze", "list-results"],
+        choices=["setup", "test", "run-experiment", "analyze", "export", "list-results"],
         help="Command to run"
     )
     
@@ -219,6 +292,9 @@ Examples:
     
     elif args.command == "analyze":
         run_analysis(args.results_file)
+    
+    elif args.command == "export":
+        export_results(args.results_file)
     
     elif args.command == "list-results":
         list_results()
