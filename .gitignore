@@ -55,3 +55,5 @@ logs/*.log
 # Temporary files
 *.tmp
 *.log
+
+.DS_Store
