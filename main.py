@@ -1,5 +1,6 @@
 """
 Main entry point for the Gender Bias in LLMs study
+Integrates improved analysis pipeline with enhanced visualizations and ANOVA analysis
 """
 import sys
 import json
@@ -145,8 +146,8 @@ def run_experiment(resume: bool = True):
     return success
 
 def run_analysis(results_file: Path = None):
-    """Run statistical analysis and generate visualizations"""
-    print(f"{Fore.CYAN}Running analysis and generating visualizations...{Style.RESET_ALL}")
+    """Run improved statistical analysis and generate visualizations"""
+    print(f"{Fore.CYAN}Running improved analysis and generating visualizations...{Style.RESET_ALL}")
     
     if results_file is None:
         # Find the most recent results file - check both final and temp results
@@ -165,12 +166,42 @@ def run_analysis(results_file: Path = None):
             print(f"{Fore.RED}No experiment results found in {RESULTS_DIR}{Style.RESET_ALL}")
             print("Run the experiment first using: python main.py run-experiment")
             return False
-    
+
     try:
-        analyzer = ComprehensiveAnalyzer(results_file)
-        analysis_results = analyzer.run_complete_analysis()
+        # Run improved analysis
+        from src.improved_analysis import run_improved_analysis
+        analysis_results = run_improved_analysis(results_file)
         
-        print(f"\n{Fore.GREEN}✓ Statistical analysis complete!{Style.RESET_ALL}")
+        if "error" in analysis_results:
+            print(f"{Fore.RED}Improved analysis failed: {analysis_results['error']}{Style.RESET_ALL}")
+            # Fall back to basic analysis
+            print(f"{Fore.YELLOW}Falling back to basic analysis...{Style.RESET_ALL}")
+            try:
+                analyzer = ComprehensiveAnalyzer(results_file)
+                analyzer.run_complete_analysis()
+                print(f"{Fore.GREEN}✓ Basic analysis completed{Style.RESET_ALL}")
+            except Exception as e:
+                print(f"{Fore.RED}Basic analysis also failed: {e}{Style.RESET_ALL}")
+                return False
+        else:
+            # Print key findings from improved analysis
+            print(f"\n{Fore.GREEN}{'=' * 60}{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}KEY FINDINGS FROM IMPROVED ANALYSIS{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{'=' * 60}{Style.RESET_ALL}")
+            
+            findings = analysis_results["key_findings"]
+            
+            print(f"🏆 {Fore.YELLOW}Best Strategy:{Style.RESET_ALL} {findings['best_strategy']}")
+            print(f"📊 {Fore.YELLOW}Best Bias Reduction:{Style.RESET_ALL} {findings['best_bias_reduction']:.1f}%")
+            print(f"📈 {Fore.YELLOW}Statistical Significance:{Style.RESET_ALL} {'Yes' if findings['statistical_significance'] else 'No'}")
+            
+            print(f"\n{Fore.CYAN}Effect Sizes:{Style.RESET_ALL}")
+            for metric, effect in findings['effect_sizes'].items():
+                print(f"  • {metric}: {effect}")
+            
+            print(f"\n{Fore.CYAN}Improved Visualizations Created:{Style.RESET_ALL}")
+            for viz_file in analysis_results["visualization_files"]:
+                print(f"  • {Path(viz_file).name}")
         
         # Export data for easy viewing
         print(f"\n{Fore.CYAN}Exporting results for viewing...{Style.RESET_ALL}")
@@ -196,11 +227,69 @@ def run_analysis(results_file: Path = None):
         except Exception as e:
             print(f"{Fore.YELLOW}Warning: Data export failed: {e}{Style.RESET_ALL}")
         
-        print(f"\n{Fore.GREEN}✓ Analysis complete!{Style.RESET_ALL}")
+        print(f"\n{Fore.GREEN}✓ Complete analysis pipeline finished!{Style.RESET_ALL}")
         return True
         
     except Exception as e:
         print(f"{Fore.RED}Analysis failed: {e}{Style.RESET_ALL}")
+        return False
+
+def run_improved_analysis_only(results_file: Path = None):
+    """Run only the improved statistical analysis and visualizations"""
+    print(f"{Fore.CYAN}Running improved analysis (no export)...{Style.RESET_ALL}")
+    
+    if results_file is None:
+        # Find the most recent results file - check both final and temp results
+        results_files = list(RESULTS_DIR.glob("experiment_results_*.json"))
+        temp_files = list(RESULTS_DIR.glob("temp_results_*.json"))
+        
+        # Prefer final results, but fall back to temp results if no final results exist
+        if results_files:
+            results_file = max(results_files, key=lambda f: f.stat().st_mtime)
+            print(f"Using most recent final results: {results_file.name}")
+        elif temp_files:
+            results_file = max(temp_files, key=lambda f: f.stat().st_mtime)
+            print(f"{Fore.YELLOW}No final results found, using temp results: {results_file.name}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}Note: This may be from an incomplete experiment{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}No experiment results found in {RESULTS_DIR}{Style.RESET_ALL}")
+            print("Run the experiment first using: python main.py run-experiment")
+            return False
+
+    try:
+        # Run improved analysis only
+        from src.improved_analysis import run_improved_analysis
+        analysis_results = run_improved_analysis(results_file)
+        
+        if "error" in analysis_results:
+            print(f"{Fore.RED}Improved analysis failed: {analysis_results['error']}{Style.RESET_ALL}")
+            return False
+        
+        # Print key findings from improved analysis
+        print(f"\n{Fore.GREEN}{'=' * 60}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}KEY FINDINGS FROM IMPROVED ANALYSIS{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{'=' * 60}{Style.RESET_ALL}")
+        
+        findings = analysis_results["key_findings"]
+        
+        print(f"🏆 {Fore.YELLOW}Best Strategy:{Style.RESET_ALL} {findings['best_strategy']}")
+        print(f"📊 {Fore.YELLOW}Best Bias Reduction:{Style.RESET_ALL} {findings['best_bias_reduction']:.1f}%")
+        print(f"📈 {Fore.YELLOW}Statistical Significance:{Style.RESET_ALL} {'Yes' if findings['statistical_significance'] else 'No'}")
+        
+        print(f"\n{Fore.CYAN}Effect Sizes:{Style.RESET_ALL}")
+        for metric, effect in findings['effect_sizes'].items():
+            print(f"  • {metric}: {effect}")
+        
+        print(f"\n{Fore.CYAN}Improved Visualizations Created:{Style.RESET_ALL}")
+        for viz_file in analysis_results["visualization_files"]:
+            print(f"  • {Path(viz_file).name}")
+        
+        print(f"\n{Fore.GREEN}✓ Improved analysis complete!{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}To export results for viewing, run: python main.py export{Style.RESET_ALL}")
+        return True
+        
+    except Exception as e:
+        print(f"{Fore.RED}Improved analysis failed: {e}{Style.RESET_ALL}")
         return False
 
 def export_results(results_file: Path = None):
@@ -472,7 +561,8 @@ Examples:
   python main.py setup                 # Setup project and create templates
   python main.py test                  # Test all components
   python main.py run-experiment        # Run the full experiment
-  python main.py analyze               # Analyze most recent results
+  python main.py analyze               # Analyze most recent results (improved analysis + export)
+  python main.py improved-analysis     # Run only improved analysis (no export)
   python main.py export                # Export results to JSON/HTML viewer
   python main.py list-results          # List all available results
   python main.py convert-temp          # Convert temp results to final format
@@ -481,7 +571,7 @@ Examples:
     
     parser.add_argument(
         "command",
-        choices=["setup", "test", "run-experiment", "analyze", "export", "list-results", "convert-temp"],
+        choices=["setup", "test", "run-experiment", "analyze", "improved-analysis", "export", "list-results", "convert-temp"],
         help="Command to run"
     )
     
@@ -525,6 +615,9 @@ Examples:
     
     elif args.command == "analyze":
         run_analysis(args.results_file)
+    
+    elif args.command == "improved-analysis":
+        run_improved_analysis_only(args.results_file)
     
     elif args.command == "export":
         export_results(args.results_file)
