@@ -1,7 +1,7 @@
 We systematically evaluated four prompting strategies using OpenAI GPT-4.1-mini across 25 educational paragraphs, conducting 300 total experiments (4 strategies × 25 paragraphs × 3 repetitions).
 
 \subsection{Educational Text Corpus}
-Our corpus comprised 25 carefully curated educational paragraphs (200-250 tokens each) containing clear gendered language patterns. Content was sourced from established open educational resources: OpenStax textbooks (80\%), BCcampus OpenEd (10\%), and MIT OpenCourseWare (10\%). The corpus maintained balanced disciplinary representation (50\% STEM, 50\% humanities) with 1-12 gendered terms per paragraph.
+Our corpus comprised 25 carefully curated educational paragraphs (200-250 tokens each) containing clear gendered language patterns. Content was sourced from established open educational resources: OpenStax textbooks \cite{openstax2021subjects} (80\%), BCcampus OpenEd (10\%), and MIT OpenCourseWare (10\%). The corpus maintained balanced disciplinary representation (50\% STEM, 50\% humanities) with 1-12 gendered terms per paragraph.
 
 \subsection{Prompting Strategies}
 We designed four strategies representing increasing complexity in bias mitigation:
@@ -19,8 +19,8 @@ Complete prompt templates are provided in Appendix A.
 \subsection{Evaluation Framework}
 We employed comprehensive evaluation encompassing three dimensions:
 
-\textbf{Gender Bias Reduction:} Automated detection using regex patterns for gendered terms, calculating percentage reduction from original text.
+\textbf{Gender Bias Reduction:} Automated detection using regex patterns for gendered terms \cite{ningrum2020developing}, calculating percentage reduction from original text.
 
 \textbf{Semantic Preservation:} BLEU-4 scores measuring similarity between original and transformed text.
 
-\textbf{Consistency Analysis:} Variance assessment across experimental repetitions to evaluate reliability. 
+\textbf{Consistency Analysis:} Variance assessment across experimental repetitions to evaluate reliability using ANOVA statistical methods \cite{dror2018anova}. 
