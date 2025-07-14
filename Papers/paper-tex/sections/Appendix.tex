@@ -1,0 +1,19 @@
+\section{Prompting Strategies}
+
+\noindent\textbf{Strategy 1: Raw Prompt (Control)} - Baseline without bias mitigation instructions.\\
+\textit{Prompt:} "Rewrite the following paragraph clearly: [PARAGRAPH\_TEXT]"
+
+\vspace{0.3cm}
+\noindent\textbf{Strategy 2: System Prompt} - Explicit role assignment for bias mitigation.\\
+\textit{System:} "You are an inclusive writing assistant. Rewrite the following text using gender-neutral language."\\
+\textit{User:} "[PARAGRAPH\_TEXT]"
+
+\vspace{0.3cm}
+\noindent\textbf{Strategy 3: Few-Shot Prompt} - Examples of gender-neutral transformations.\\
+\textit{System:} "You are an inclusive writing assistant. Rewrite text using gender-neutral language."\\
+\textit{User:} "Examples: Original: 'Every student must submit his paper.' Neutral: 'All students must submit their papers.' Original: 'A professor should encourage his students.' Neutral: 'Professors should encourage their students.' Now rewrite: [PARAGRAPH\_TEXT]"
+
+\vspace{0.3cm}
+\noindent\textbf{Strategy 4: Few-Shot + Verification} - Few-shot with self-verification.\\
+\textit{Implementation:} Same as Strategy 3 plus verification step:\\
+\textit{Additional:} "After your rewrite, verify: Are there still gendered terms? If yes, rewrite again to be fully gender-neutral."

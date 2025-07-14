@@ -1,0 +1,22 @@
+Our 300 experimental trials demonstrate performance hierarchies across prompting strategies, with Few-Shot + Verification and System prompt achieving better bias reduction while maintaining semantic fidelity.
+
+\subsection{Strategy Performance Comparison}
+Figure~\ref{fig:bias_reduction} shows bias reduction effectiveness across all strategies. Few-Shot + Verification achieved 84.1\% bias reduction with same as System Prompt (84.1\%) and Few Shot achieved (80.5\%). While FS + Verification is similar to System prompt, lower point of FS + Verification was higher than System prompt. The performance hierarchy (Few-Shot + Verification \textgreater System Prompt \textgreater Few Shot \textgreater Raw) was consistent across all experimental repetitions.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{fig/bias_reduction.png}}
+\caption{Bias reduction performance by prompting strategy.}
+\label{fig:bias_reduction}
+\end{figure}
+
+\subsection{Semantic Preservation}
+BLEU-4 analysis (Figure~\ref{fig:bleu4_score}) demonstrates that effective bias mitigation maintains semantic content. Few-Shot + Verification preserved semantic fidelity (BLEU-4: 0.76) while achieving optimal bias reduction, indicating that structured approaches enhance rather than degrade content quality.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{fig/bleu-4_score.png}}
+\caption{BLEU-4 scores showing semantic preservation capabilities.}
+\label{fig:bleu4_score}
+\end{figure}
+
+\subsection{Statistical Validation}
+ANOVA analysis confirmed statistical differences between the four prompting strategies, demonstrating that structured approaches outperform basic prompting. As expected, the Raw Prompt served as an effective baseline, showing the poorest bias reduction performance and validating the need for structured prompting approaches. Few-Shot with Verification emerged as the top performer, while System Prompt also demonstrated strong bias mitigation capabilities. Few-Shot without verification showed lower performance, confirming that the self-correction mechanism provides meaningful improvement over examples alone.
