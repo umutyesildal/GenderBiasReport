@@ -1,3 +1,16 @@
+# Optimal Prompting Strategies for Gender-Neutral Educational Content
+**A Comparative LLM Bias Mitigation Study**
+
+Umut Yunus Yesildal, Humboldt-Universität zu Berlin  
+Supervisor: Leo S. Rüdian
+
+**[Read the paper (PDF)](paper/yesildal-2026-gender-neutral-prompting.pdf)**
+
+> Four prompting strategies (Raw, System, Few-Shot, Few-Shot + Verification) across 25 educational
+> paragraphs and 300 trials with GPT-4.1-mini. Measured gender bias, fluency, BLEU-4 and semantic similarity.
+
+---
+
 # Gender Bias in Large Language Models Study
 
 A comprehensive research framework for investigating how different prompting strategies affect gender bias in Large Language Model outputs.
@@ -24,7 +37,7 @@ This project implements a controlled experiment to evaluate four different promp
 
 ```bash
 # Clone or download the project
-cd Gender-Bias
+cd GenderBiasReport
 
 # Create virtual environment (recommended)
 python -m venv venv
